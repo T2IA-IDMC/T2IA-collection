@@ -1,0 +1,108 @@
+@startuml
+' Classes abstraites
+abstract class Collection {
+  - items: dict
+  + load(file_path)
+  + save(file_path)
+  + filter(criteria)
+}
+
+class CardCollection {
+  - postcards: dict[str, Postcard]
+  + load(file_path)
+  + save(file_path)
+  + filter_by_tags(tags)
+  + filter_by_keywords(keywords)
+  + filter_by_town(town)
+  + filter_by_department(department)
+  + filter_by_region(region)
+}
+
+abstract class Detection {
+  - bbox: BoundingBox
+  - is_manual: bool
+  + process_content()
+}
+
+' Classes concrètes
+class Postcard {
+  - path: str
+  - name: str
+  - city: str
+  - tags: list[str]
+  - gps: tuple[float, float]
+  - detections: dict[str, list[Detection]]
+  + save()
+  + to_tensor()
+  + to_yolo_format()
+  + get_detections(type)
+}
+
+class BoundingBox {
+  - x: float
+  - y: float
+  - w: float
+  - h: float
+  + rotate(angle)
+  + transform(coords)
+}
+
+class Text {
+  - orientation
+  - ocr_result: str
+  - keywords: list[str]
+  + process_content()
+}
+
+class Postmark {
+  - ...
+  + process_content()
+}
+
+class Printed {
+  - is_editor: bool
+}
+
+class Handwritten {
+  - ...
+}
+
+class NaturalText {
+  - ...
+}
+
+class Stamp {
+  - country: str
+  - color: str
+  - price: str
+}
+
+class DateStamp {
+  - postal_agency: str
+  - date: str
+  - department: str
+  - starred_hour: bool
+  - collection: str
+  - type
+  - quality
+}
+
+class OtherMark {
+  - type
+}
+
+
+' Relations
+Collection <|.. CardCollection : hérite
+CardCollection o--> "many" Postcard : contient
+Postcard o--> "many" Detection : contient
+Detection o--> "1" BoundingBox : compose
+Detection <|.. Text : hérite
+Detection <|.. Postmark : hérite
+Text <|.. Printed : hérite
+Text <|.. Handwritten : hérite
+Text <|.. NaturalText : hérite
+Postmark <|.. Stamp : hérite
+Postmark <|.. DateStamp : hérite
+Postmark <|.. OtherMark : hérite
+@enduml
