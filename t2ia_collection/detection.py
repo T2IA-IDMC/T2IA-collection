@@ -17,6 +17,12 @@ class BoundingBox:
             res &= math.isclose(a, b, rel_tol=1e-06)
         return res
 
+    def __lt__(self, other):
+        # Norme euclidienne au point central de la bbox : sqrt(x^2 + y^2)
+        norm_self = math.sqrt(self.x**2 + self.y**2)
+        norm_other = math.sqrt(other.x**2 + other.y**2)
+        return norm_self < norm_other
+
     def __iter__(self):
         return iter(self.xywhn())
 

@@ -34,6 +34,7 @@ def test_bounding_box():
     assert not invalid_bbox.is_valid()
     assert bbox == bbox
     assert bbox != invalid_bbox
+    assert BoundingBox(0.5, 0.4, 0.2, 0.2) > BoundingBox(0.2, 0.3, 0.1, 0.1)
     assert compare_float_sequences(bbox.xywhn(), test_bbox['xywhn'])
     assert compare_float_sequences(bbox.xyxyn(), test_bbox['xyxyn'])
     assert bbox.xywh(test_img_size) == test_bbox['xywh']
