@@ -28,14 +28,38 @@ abstract class Detection {
 class Postcard {
   - path: str
   - name: str
-  - city: str
+  - annotations: Annotations
+  + get_annotations()
+  + set_annotations(annotations: Annotations)
+  + save_annotations()
+  + load_annotations()
+  + draw_bboxes()
+  + rotate_image(angle)
+  + plot() ?
+  + to_array() ?
+  + resize() ?
+}
+
+class Annotations {
+  - location: Location
   - tags: list[str]
+  - keywords: list[str]
+  - detections: list[Detection]
+  - rotation: int
+'  + to_tensor()
+'  + to_yolo_format()
+'  + to_cvat_format()
+  + set_location()
+  + set_detections()
+  + set_tags()
+  + set_keywords()
+}
+
+class Location {
+  - town: str
+  - department: str
+  - region: str
   - gps: tuple[float, float]
-  - detections: dict[str, list[Detection]]
-  + save()
-  + to_tensor()
-  + to_yolo_format()
-  + get_detections(type)
 }
 
 class BoundingBox {
@@ -47,14 +71,14 @@ class BoundingBox {
   + transform(coords)
 }
 
-class Text {
-  - orientation
+abstract class Text {
+  - orientation: int
   - ocr_result: str
   - keywords: list[str]
   + process_content()
 }
 
-class Postmark {
+abstract class Postmark {
   - ...
   + process_content()
 }
@@ -67,7 +91,7 @@ class Handwritten {
   - ...
 }
 
-class NaturalText {
+class SceneText {
   - ...
 }
 
@@ -95,13 +119,16 @@ class OtherMark {
 ' Relations
 Collection <|.. CardCollection : hérite
 CardCollection o--> "many" Postcard : contient
-Postcard o--> "many" Detection : contient
-Detection o--> "1" BoundingBox : compose
+Postcard o--> "1" Annotations : contient
+Annotations o--> "1" Location : contient
+Location --> Printed : utilise
+Annotations o--> "many" Detection : contient
+Detection o--> "1" BoundingBox : contient
 Detection <|.. Text : hérite
 Detection <|.. Postmark : hérite
 Text <|.. Printed : hérite
 Text <|.. Handwritten : hérite
-Text <|.. NaturalText : hérite
+Text <|.. SceneText : hérite
 Postmark <|.. Stamp : hérite
 Postmark <|.. DateStamp : hérite
 Postmark <|.. OtherMark : hérite

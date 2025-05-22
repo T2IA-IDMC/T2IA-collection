@@ -12,7 +12,7 @@ A Python package for managing postcard collections, including detection of text 
 
 ## Requirements
 
-- Python >= 3.7
+- Python >= 3.12
 
 ## License
 
