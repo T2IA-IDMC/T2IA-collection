@@ -1,11 +1,18 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Tuple, Dict, List
+from collections.abc import Sequence
+from typing import List, Dict, Tuple, Optional, Literal
 from enum import Enum
 import math
 
+# ======================================================================================================================
+# BOUNDING BOXES
+# ======================================================================================================================
+
 @dataclass
 class BoundingBox:
+    """
+    Class for bounding boxes, with [x, y, w, h] normalized coordinates with (x, y) the central point of the bbox and (w, h) its width and height."""
     x: float
     y: float
     w: float
@@ -27,6 +34,7 @@ class BoundingBox:
         return iter(self.xywhn())
 
     def rotate(self, angle: float) -> 'BoundingBox':
+        #TODO : rotation of bboxes and test
         pass
 
     def xywhn(self) -> Tuple[float, float, float, float]:
@@ -72,3 +80,52 @@ class BoundingBox:
         """Vérifie si la bounding box possède des coordonnées valides (bbox inclue dans l'image) avec une certaine tolérance"""
         x, y, w, h = self.xywhn()
         return (w/2 - tol <= x <= 1 - w/2 + tol) and (h/2 - tol <= y <= 1 - h/2 + tol)
+
+
+def bbox_from_coord(
+        coords: Sequence[float],
+        format: Literal['xywh', 'xywhn', 'xyxy', 'xyxyn', 'xxyy', 'xxyyn'] = 'xywhn',
+        img_size: Optional[Tuple[float, float]] = None
+) -> BoundingBox:
+    """Renvoie un objet BoundingBox en fonction des coordonnées données en entrée, de leur format, ainsi que de les dimensions de l'image (largeur, hauteur) si les coordonnées ne sont pas normalisées."""
+    # test de la longueur des coordonnées (forcément égal à 4)
+    if len(coords) != 4:
+        raise ValueError(f"'coords' argument must have 4 coordinates, got {len(coords)}")
+    # test format de coordonnées
+    list_formats = ['xywh', 'xywhn', 'xyxy', 'xyxyn', 'xxyy', 'xxyyn']
+    if format not in list_formats:
+        raise ValueError(f"'format' argument must be one of {list_formats}, got '{format}'")
+
+    # coordonnées normalisées ou non
+    if format[-1] == 'n':
+        img_w, img_h = (1, 1)  # pas de modification
+        format = format[:-1]
+    else:
+        if img_size is not None:
+            img_w, img_h = img_size
+        else:
+            raise ValueError(f"If the coordinates are not normalized ('{format}'), you must specify an 'img_size'.")
+
+    # format de coordonnées
+    if format == 'xywh':
+        x, y, w, h = coords
+    else:
+        if format == 'xyxy':
+            x_min, y_min, x_max, y_max = coords
+        else:
+            x_min, x_max, y_min, y_max = coords
+        # calcul des coordonnées
+        w = x_max - x_min
+        h = y_max - y_min
+        x = x_min + w/2
+        y = y_min + h/2
+
+    # normalisation
+    x, w = [el/img_w for el in [x, w]]
+    y, h = [el/img_h for el in [y, h]]
+
+    bbox = BoundingBox(x, y, w, h)
+    if not bbox.is_valid():
+        raise ValueError(f"The coordinates '{coords}' are invalid, the bbox is outside the image.")
+
+    return bbox

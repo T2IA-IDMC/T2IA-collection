@@ -1,5 +1,5 @@
-from .detection import BoundingBox
+from .detection import BoundingBox, bbox_from_coord
 
 __all__ = [
-    "BoundingBox",
+    "BoundingBox", "bbox_from_coord"
 ]
