@@ -1,7 +1,6 @@
 import pytest
-from t2ia_collection import BoundingBox, bbox_from_coord
+from t2ia_collection.detection import BoundingBox, bbox_from_coord, Detection
 import math
-
 
 # ======================================================================================================================
 # FUNCTIONS
@@ -19,6 +18,8 @@ def isclose_float_sequences(sequence_1, sequence_2, rel_tol=1e-06, abs_tol=0.0):
 # FIXTURES
 # ======================================================================================================================
 
+# BoundingBox
+# -----------
 @pytest.fixture #test fixture decorator
 def test_img_size():
   return 4646, 3028
@@ -39,12 +40,27 @@ def invalid_bbox(test_bboxes):
   return BoundingBox(0.056, 0.005, 0.452, 0.004)
 
 
+# Detection
+# ---------
+@pytest.fixture
+def dict_detection(test_bboxes):
+  return {'bbox': {coord: value for coord, value in zip('xywh', test_bboxes['xywhn'])},
+          'is_manual': False,
+          'confidence': 0.75,
+          'content': None}
+
+@pytest.fixture
+def detection(bbox):
+    return Detection(bbox, is_manual=False, confidence=0.75)
+
+
+
 # ======================================================================================================================
-# TESTS
+# TESTS BoundingBox
 # ======================================================================================================================
 
 class TestClassBoundingBox:
-    """test of Class BoundingBox"""
+    """tests for BoundingBox Class"""
 
     def test_validity(self, bbox, invalid_bbox):
         """test validity of BoundingBox"""
@@ -87,9 +103,18 @@ class TestClassBoundingBox:
             bbox.rotate(68)
             bbox.rotate(math.pi + 0.1)
 
+    def test_to_dict(self, bbox, test_bboxes):
+        """test BoundingBox transformation to dict"""
+        assert bbox.to_dict() == {coord: value for coord, value in zip('xywh', test_bboxes['xywhn'])}
+
+    def test_from_dict(self, bbox, test_bboxes):
+        """test BoundingBox instantiation from dict"""
+        assert bbox == BoundingBox.from_dict({coord: value for coord, value in zip('xywh', test_bboxes['xywhn'])})
+        assert bbox == BoundingBox.from_dict(bbox.to_dict())
+
 
 class TestFuncBboxFromCoord:
-    """test of function bbox_from_coord(coords, format, img_size) -> BoundingBox"""
+    """test for function bbox_from_coord(coords, format, img_size) -> BoundingBox"""
 
     def test_instantiation(self, bbox, test_bboxes, test_img_size):
         """test instantiation of BoundingBox using function bbox_from_coord()"""
@@ -97,13 +122,48 @@ class TestFuncBboxFromCoord:
             assert bbox == bbox_from_coord(test_bboxes[bbox_format], bbox_format, test_img_size)
 
 
-    @pytest.mark.parametrize("coords, format, img_size", [([56], 'xywh', (1000, 1000)),
+    @pytest.mark.parametrize("coords, coord_format, img_size", [([56], 'xywh', (1000, 1000)),
                                                           ([56, 5], 'xywh', (1000, 1000)),
                                                           ([56, 5, 452], 'xywh', (1000, 1000)),
                                                           ([56, 5, 452, 4], 'invalid_format', (1000, 1000)),
                                                           ([56, 5, 452, 4], 'xyxy', None),
                                                           ([56, 5, 452, 4], 'xywh', (1000, 1000))])
-    def test_invalid(self, coords, format, img_size):
+    def test_invalid(self, coords, coord_format, img_size):
         """test if bbox_from_coord() call raises a ValueError with invalid entries"""
         with pytest.raises(ValueError):
-            bbox_from_coord(coords, format, img_size)
+            bbox_from_coord(coords, coord_format, img_size)
+
+
+# ======================================================================================================================
+# TESTS Detection
+# ======================================================================================================================
+
+class TestClassDetection:
+    """tests for Detection Class"""
+
+    def test_instantiation(self, bbox):
+        """test instantiation of Detection Class"""
+        assert Detection(bbox)
+        assert Detection(bbox, is_manual=False, confidence=0.76)
+        # TODO : add with a content
+
+    def test_invalid(self, bbox):
+        """test invalid instantiation of a non-manual Detection without confidence"""
+        with pytest.raises(ValueError):
+            Detection(bbox, is_manual=False)
+
+    def test_has_content(self, bbox):
+        """test if Detection has content"""
+        assert not Detection(bbox).has_content()
+        # TODO : add with a content
+
+    def test_to_dict(self, detection, dict_detection):
+        """test Detection transformation to dict"""
+        assert detection.to_dict() == dict_detection
+
+    def test_from_dict(self, detection, dict_detection):
+        """test Detection instantiation from dict"""
+        assert detection == Detection.from_dict(dict_detection)
+        assert detection == Detection.from_dict(detection.to_dict())
+
+

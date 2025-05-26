@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from collections.abc import Sequence
-from typing import List, Dict, Tuple, Optional, Literal
-from enum import Enum
+from typing import List, Dict, Tuple, Optional, Literal, Any
 import math
+from t2ia_collection.content import *
 
 # ======================================================================================================================
 # BOUNDING BOXES
@@ -82,7 +82,7 @@ class BoundingBox:
         y_max = min(y + h/2, 1)
         return x_min, y_min, x_max, y_max
 
-    def xyxy(self, img_size: Tuple[float, float]) -> Tuple[float, float, float, float]:
+    def xyxy(self, img_size: Tuple[int, int]) -> Tuple[float, float, float, float]:
         """Coordonnées [x_min, y_min, x_max, y_max] avec points haut-gauche (x_min, y_min) et bas-droit (x_max, y_max) en fonction de la taille de l'image"""
         x, y, w, h = self.xywhn()
         img_w, img_h = img_size
@@ -97,7 +97,7 @@ class BoundingBox:
         x_min, y_min, x_max, y_max = self.xyxyn()
         return x_min, x_max, y_min, y_max
 
-    def xxyy(self, img_size: Tuple[float, float]) -> Tuple[float, float, float, float]:
+    def xxyy(self, img_size: Tuple[int, int]) -> Tuple[float, float, float, float]:
         """Coordonnées [x_min, x_max, y_min, y_max] avec points haut-gauche (x_min, y_min) et bas-droit (x_max, y_max) en fonction de la taille de l'image"""
         x_min, y_min, x_max, y_max = self.xyxy(img_size)
         return x_min, x_max, y_min, y_max
@@ -107,25 +107,33 @@ class BoundingBox:
         x, y, w, h = self.xywhn()
         return (w/2 - tol <= x <= 1 - w/2 + tol) and (h/2 - tol <= y <= 1 - h/2 + tol)
 
+    def to_dict(self) -> Dict[str, float]:
+        """Renvoie un dictionnaire avec les coordonnées xywhn"""
+        return {coord: value for coord, value in zip('xywhn', self.xywhn())}
+
+    @staticmethod
+    def from_dict(data: Dict[str, float]) -> "BoundingBox":
+        """Permet d'instancier une BoundingBox à partir d'un dictionnaire"""
+        return BoundingBox(**data)
+
 
 def bbox_from_coord(
         coords: Sequence[float],
-        format: Literal['xywh', 'xywhn', 'xyxy', 'xyxyn', 'xxyy', 'xxyyn'] = 'xywhn',
-        img_size: Optional[Tuple[float, float]] = None
-) -> BoundingBox:
-    """Renvoie un objet BoundingBox en fonction des coordonnées données en entrée, de leur format, ainsi que de les dimensions de l'image (largeur, hauteur) si les coordonnées ne sont pas normalisées."""
+        coord_format: Literal['xywh', 'xywhn', 'xyxy', 'xyxyn', 'xxyy', 'xxyyn'] = 'xywhn',
+        img_size: Optional[Tuple[float, float]] = None) -> BoundingBox:
+    """Renvoie un objet BoundingBox en fonction des coordonnées données en entrée, de leur format, ainsi que des dimensions de l'image (largeur, hauteur) si les coordonnées ne sont pas normalisées."""
     # test de la longueur des coordonnées (forcément égal à 4)
     if len(coords) != 4:
         raise ValueError(f"'coords' argument must have 4 coordinates, got {len(coords)}")
     # test format de coordonnées
     list_formats = ['xywh', 'xywhn', 'xyxy', 'xyxyn', 'xxyy', 'xxyyn']
-    if format not in list_formats:
-        raise ValueError(f"'format' argument must be one of {list_formats}, got '{format}'")
+    if coord_format not in list_formats:
+        raise ValueError(f"'format' argument must be one of {list_formats}, got '{coord_format}'")
 
     # coordonnées normalisées ou non
-    if format[-1] == 'n':
+    if coord_format[-1] == 'n':
         img_w, img_h = (1, 1)  # pas de modification
-        format = format[:-1]
+        coord_format = coord_format[:-1]
     else:
         if img_size is not None:
             img_w, img_h = img_size
@@ -133,10 +141,10 @@ def bbox_from_coord(
             raise ValueError(f"If the coordinates are not normalized ('{format}'), you must specify an 'img_size'.")
 
     # format de coordonnées
-    if format == 'xywh':
+    if coord_format == 'xywh':
         x, y, w, h = coords
     else:
-        if format == 'xyxy':
+        if coord_format == 'xyxy':
             x_min, y_min, x_max, y_max = coords
         else:
             x_min, x_max, y_min, y_max = coords
@@ -155,3 +163,45 @@ def bbox_from_coord(
         raise ValueError(f"The coordinates '{coords}' are invalid, the bbox is outside the image.")
 
     return bbox
+
+
+# ======================================================================================================================
+# DETECTIONS
+# ======================================================================================================================
+
+@dataclass
+class Detection:
+    """Classe pour les différentes détections"""
+    bbox: BoundingBox
+    is_manual: bool = True
+    confidence: float = None
+    content: Content = None  # TODO : faire le lien avec les classes Content
+
+    def __post_init__(self):
+        """Vérification de la présence d'un score de confiance si contenu non annoté manuellement"""
+        if not self.is_manual and self.confidence is None:
+            raise ValueError("Confidence must be set if the detection is not manually set.")
+
+    def has_content(self) -> bool:
+        """Vérifie si un contenu a été extrait à partir de la détection"""
+        return self.content is not None
+
+    def to_dict(self) -> Dict:
+        """Renvoie un dictionnaire avec le contenu de la classe"""
+        res = {
+            'bbox': self.bbox.to_dict(),
+            'is_manual': self.is_manual,
+            'confidence': self.confidence,
+            'content': self.content.to_dict() if self.has_content() else None
+        }
+        return res
+
+    @staticmethod
+    def from_dict(data: Dict):
+        """Permet d'instancier la classe à partir d'un dictionnaire"""
+        return Detection(bbox=BoundingBox.from_dict(data['bbox']),
+                         is_manual=data['is_manual'],
+                         confidence=data['confidence'],
+                         content=data['content'])
+
+
