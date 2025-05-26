@@ -69,6 +69,24 @@ class TestClassBoundingBox:
         assert bbox.xywh(test_img_size) == tuple(round(coord) for coord in test_bboxes['xywh'])
         assert bbox.xyxy(test_img_size) == tuple(round(coord) for coord in test_bboxes['xyxy'])
 
+    def test_rotation(self, bbox):
+        """test rotation of BoundingBox"""
+        assert bbox == bbox.rotate(360)
+        assert bbox == bbox.rotate(90).rotate(180).rotate(90)
+        assert bbox.rotate(-90) == bbox.rotate(270)
+        assert bbox.rotate(180) == bbox.rotate(-180)
+        assert bbox.rotate(90) == bbox.rotate(450)
+        assert bbox.rotate(math.pi/2, radians=True) == bbox.rotate(90)
+        assert bbox.rotate(math.pi, radians=True) == bbox.rotate(- math.pi, radians=True)
+        assert bbox.rotate(90) == BoundingBox(x=0.1604120135307312, y=0.25560420751571655,
+                                              w=0.2762804627418518, h=0.15120507776737213)
+
+    def test_invalid_rotation(self, bbox):
+        """test rotation of BoundingBox avec des angles invalides"""
+        with pytest.raises(ValueError):
+            bbox.rotate(68)
+            bbox.rotate(math.pi + 0.1)
+
 
 class TestFuncBboxFromCoord:
     """test of function bbox_from_coord(coords, format, img_size) -> BoundingBox"""
@@ -87,6 +105,5 @@ class TestFuncBboxFromCoord:
                                                           ([56, 5, 452, 4], 'xywh', (1000, 1000))])
     def test_invalid(self, coords, format, img_size):
         """test if bbox_from_coord() call raises a ValueError with invalid entries"""
-        print(coords, format, img_size)
         with pytest.raises(ValueError):
             bbox_from_coord(coords, format, img_size)

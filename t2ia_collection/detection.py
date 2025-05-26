@@ -33,9 +33,35 @@ class BoundingBox:
     def __iter__(self):
         return iter(self.xywhn())
 
-    def rotate(self, angle: float) -> 'BoundingBox':
-        #TODO : rotation of bboxes and test
-        pass
+    def rotate(self, theta: float, radians=False) -> 'BoundingBox':
+        """
+        Rotation d'un point de coordonnées xy d'un angle theta, multiple de 90° (ou π/2 radians), par rapport au centre de rotation xy_center.
+        """
+        # Centre de rotation
+        cx, cy = 0.5, 0.5
+        # transformation de l'angle en radiant si besoin
+        if not radians:
+            if theta % 90 != 0:
+                raise ValueError(f"Theta must be an multiple of 90°, got {theta} = {theta // 90} x 90 + {theta % 90}.")
+            else:
+                theta = math.radians(theta)
+        else:
+            rad90 = math.pi/2
+            if theta % rad90 != 0:
+                raise ValueError(f"Theta must be an multiple of π/2, got {theta:.3f} = {theta // rad90:.0f} x π/2 + {theta % rad90:.3f}.")
+        # Angle négatif pour matcher PIL.Image.rotate() :
+        theta *= -1
+        # Translation vers l'origine
+        x_trans = self.x - cx
+        y_trans = self.y - cy
+        # Rotation
+        cos_theta = math.cos(theta)
+        sin_theta = math.sin(theta)
+        x_rot = x_trans * cos_theta - y_trans * sin_theta
+        y_rot = x_trans * sin_theta + y_trans * cos_theta
+        w_rot = self.w * cos_theta ** 2 + self.h * sin_theta ** 2
+        h_rot = self.w * sin_theta ** 2 + self.h * cos_theta ** 2
+        return BoundingBox(x_rot + cx, y_rot + cy, w_rot, h_rot)
 
     def xywhn(self) -> Tuple[float, float, float, float]:
         """Coordonnées normalisées avec point central, largeur et hauteur de la bbox"""
