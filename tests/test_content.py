@@ -27,7 +27,7 @@ def dict_pred_text():
 
 @pytest.fixture
 def manual_text():
-    return Text(ocr_result='test du contenu manuel', orientation=90, keywords=['test', 'manuel'])
+    return Text(is_manual=True, ocr_result='test du contenu manuel', orientation=90, keywords=['test', 'manuel'])
 
 @pytest.fixture
 def pred_text():
@@ -42,6 +42,9 @@ class TestClassContent:
     def test_instantiation(self):
         """test instantiation of Content Class"""
         assert Content()
+        assert Content(None, 0.1) == Content()
+        assert Content(True)
+        assert Content(True, 0.2) == Content(True)
         assert Content(False, 0.8)
 
     def test_invalid(self):
@@ -53,15 +56,23 @@ class TestClassContent:
         """test get_cls_name() method"""
         assert Content().get_cls_name() == 'Content'
 
+    def test_is_processed(self):
+        """test is_processed() method"""
+        assert not Content().is_processed()
+        assert Content(True).is_processed()
+        assert Content(False, 0.8).is_processed()
+
     def test_to_dict(self):
         """test to_dict() method"""
-        assert Content().to_dict() == {'is_manual': True, 'confidence': None}
+        assert Content().to_dict() == {'is_manual': None, 'confidence': None}
+        assert Content(True).to_dict() == {'is_manual': True, 'confidence': None}
         assert Content(False, 0.8).to_dict() == {'is_manual': False, 'confidence': 0.8}
 
     def test_from_dict(self):
         """test from_dict() method"""
         assert Content.from_dict({'is_manual': False, 'confidence': 0.75}) == Content(False, 0.75)
         assert Content.from_dict({}) == Content()
+        assert Content.from_dict({'is_manual': True}) == Content(True)
         assert Content.from_dict(Content(False, 0.8).to_dict()) == Content(False, 0.8)
 
     def test_to_series(self):
@@ -79,6 +90,7 @@ class TestClassContent:
         if importlib.util.find_spec("pandas") is not None:
             import pandas as pd
             assert Content.from_series(Content().to_series()) == Content()
+            assert Content.from_series(Content(True).to_series()) == Content(True)
             assert Content.from_series(Content(False, 0.8).to_series()) == Content(False, 0.8)
         else:
             with pytest.raises(NotImplementedError):
@@ -91,9 +103,16 @@ class TestClassContent:
 class TestClassText:
     """test for class Text"""
 
-    def test_instantiation(self):
+    def test_instantiation(self, manual_text):
         """test instantiation of Text Class"""
-        assert Text(ocr_result='test du contenu manuel', orientation=90, keywords=['test', 'manuel'])
+        assert Text()
+        assert Text(confidence=0.8) == Text()
+        assert Text(is_manual=True, ocr_result='test du contenu manuel', orientation=90, keywords=['test', 'manuel'])
+        assert Text(is_manual=True,
+                    confidence=0.54,
+                    ocr_result='test du contenu manuel',
+                    orientation=90,
+                    keywords=['test', 'manuel']) == manual_text
         assert Text(False, 0.8, ocr_result='test du contenu prédit', orientation=90)
 
     def test_invalid(self):
@@ -101,9 +120,17 @@ class TestClassText:
         with pytest.raises(ValueError):
             Text(False, ocr_result='test du contenu prédit', orientation=90)
 
-    def test_get_cls_name(self):
+    def test_get_cls_name(self, manual_text, pred_text):
         """test get_cls_name() method"""
         assert Text().get_cls_name() == 'Text'
+        assert manual_text.get_cls_name() == 'Text'
+        assert pred_text.get_cls_name() == 'Text'
+
+    def test_is_processed(self, manual_text, pred_text):
+        """test is_processed() method"""
+        assert not Text().is_processed()
+        assert manual_text.is_processed()
+        assert pred_text.is_processed()
 
     def test_contains(self, pred_text, manual_text):
         """test of __contains__ method"""
@@ -144,6 +171,8 @@ class TestClassText:
     def test_from_dict(self, pred_text, manual_text, dict_pred_text, dict_manual_text):
         assert Text.from_dict({'is_manual': False, 'confidence': 0.75}) == Text(is_manual=False, confidence=0.75, ocr_result='', keywords=[], orientation=0)  # défaut depuis Content
         assert Text.from_dict(dict_manual_text) == manual_text
+        assert Text.from_dict({'is_manual': None, 'confidence': 0.75}) == Text()
+        assert Text.from_dict({'is_manual': True, 'confidence': 0.75}) == Text(True)
         assert Text.from_dict(dict_pred_text) == pred_text
 
 
@@ -155,6 +184,7 @@ class TestClassPrinted:
     def test_instantiation(self):
         """test instantiation of Printed Class"""
         assert Printed()
+        assert Printed(is_manual=True, ocr_result='test du contenu manuel', orientation=180)
         assert Printed(False, 0.8, ocr_result='test du contenu prédit', orientation=90, is_editor=True)
 
     def test_get_cls_name(self):
@@ -197,6 +227,9 @@ class TestClassPostmark:
     def test_instantiation(self):
         """test instantiation of Postmark Class"""
         assert Postmark()
+        assert Postmark(confidence=0.3) == Postmark()
+        assert Postmark(True)
+        assert Postmark(True, confidence=0.5) == Postmark(True)
         assert Postmark(False, 0.78)
 
     def test_invalid(self):
@@ -208,14 +241,26 @@ class TestClassPostmark:
         """test get_cls_name() method"""
         assert Postmark().get_cls_name() == 'Postmark'
 
+    def test_is_processed(self):
+        """test is_processed() method"""
+        assert not Postmark().is_processed()
+        assert Postmark(True).is_processed()
+        assert Postmark(False, 0.8).is_processed()
+
     def test_to_dict(self, pred_text, manual_text, dict_pred_text, dict_manual_text):
-        assert Postmark().to_dict() == {'is_manual': True, 'confidence': None} # test manuel
+        assert Postmark().to_dict() == {'is_manual': None, 'confidence': None} # test manuel
+        assert Postmark(confidence=0.69).to_dict() == {'is_manual': None, 'confidence': None} # test manuel
+        assert Postmark(True).to_dict() == {'is_manual': True, 'confidence': None} # test manuel
+        assert Postmark(True, confidence=0.71).to_dict() == {'is_manual': True, 'confidence': None} # test manuel
         assert Postmark(False, 0.78).to_dict() == {'is_manual': False, 'confidence': 0.78} # test prédit
 
     def test_from_dict(self):
         """test from_dict() method"""
         assert Postmark.from_dict({'is_manual': False, 'confidence': 0.75}) == Postmark(False, 0.75)
         assert Postmark.from_dict({}) == Postmark()
+        assert Postmark.from_dict({'confidence': 0.87}) == Postmark()
+        assert Postmark.from_dict({'is_manual': True}) == Postmark(True)
+        assert Postmark.from_dict({'is_manual': True, 'confidence': 0.87}) == Postmark(True)
         assert Postmark.from_dict(Postmark(False, 0.8).to_dict()) == Postmark(False, 0.8)
 
 

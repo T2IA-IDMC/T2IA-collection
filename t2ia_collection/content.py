@@ -11,18 +11,24 @@ import importlib.util  # pour détecter si d'autres librairies sont installées
 @dataclass
 class Content(ABC):
     """Classe abstraite pour toutes les autres formes de contenu text et marque postales"""
-    is_manual: bool = True
+    is_manual: bool = None
     confidence: float = None
 
     def __post_init__(self):
         """Vérification de la présence d'un score de confiance si contenu non annoté manuellement"""
-        if not self.is_manual and self.confidence is None:
+        if (self.is_manual is False) and (self.confidence is None):
             raise ValueError("Confidence must be set if the content is not manually set.")
+        elif self.is_manual or self.is_manual is None:
+            self.confidence = None  # si manuel ou non processé pas de confiance à associer
 
     @classmethod
     def get_cls_name(cls):
         """Retourne le nom de la classe"""
         return cls.__name__
+
+    def is_processed(self):
+        """Vérifie si le contenu a été extrait"""
+        return self.is_manual is not None
 
     def to_dict(self) -> Dict:
         """Renvoie un dictionnaire avec le contenu de la classe"""
@@ -97,11 +103,13 @@ class Printed(Text):
 class Handwritten(Text):
     """Subclass of Text for handwritten text"""
     pass
+    # TODO : autres attributs et méthodes ?
 
 @dataclass
 class SceneText(Text):
     """Subclass of Text for scene text"""
     pass
+    # TODO : autres attributs et méthodes ?
 
 
 # ======================================================================================================================
@@ -112,6 +120,7 @@ class SceneText(Text):
 class Postmark(Content):
     """Sous-classe de contenu pour les marqueurs postaux"""
     pass
+    # TODO : autres attributs et méthodes ?
 
 
 # Postmark Subclasses
@@ -125,8 +134,10 @@ class Stamp(Postmark):
     country: str = ""
     color: str = None
     price: float = None
+    # TODO : autres attributs et méthodes ?
 
 @dataclass
 class OtherMark(Postmark):
     """Subclass of Postmark for other marks"""
     is_editor: bool = False
+    # TODO : autres attributs et méthodes ?
