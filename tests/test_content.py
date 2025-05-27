@@ -113,12 +113,22 @@ class TestClassText:
                     ocr_result='test du contenu manuel',
                     orientation=90,
                     keywords=['test', 'manuel']) == manual_text
+        assert Text(is_manual=True,
+                    confidence=0.54,
+                    ocr_result='test du contenu manuel',
+                    orientation=Orientation.NINETY,
+                    keywords=['test', 'manuel']) == manual_text
         assert Text(False, 0.8, ocr_result='test du contenu prédit', orientation=90)
 
     def test_invalid(self):
         """test invalid instantiation of a non-manual Text without confidence"""
         with pytest.raises(ValueError):
             Text(False, ocr_result='test du contenu prédit', orientation=90)
+            Text(orientation=45)
+            Text(orientation=143)
+        with pytest.raises(TypeError):
+            Text(orientation='90')
+
 
     def test_get_cls_name(self, manual_text, pred_text):
         """test get_cls_name() method"""
@@ -178,7 +188,7 @@ class TestClassText:
 
 # Text Subclasses
 # ---------------
-class TestClassPrinted:
+class TestClassPrintedText:
     """test for class PrintedText"""
 
     def test_instantiation(self):
@@ -192,7 +202,7 @@ class TestClassPrinted:
         assert PrintedText().get_cls_name() == 'PrintedText'
 
 
-class TestClassHandwritten:
+class TestClassHandwrittenText:
     """test for class HandwrittenText"""
 
     def test_instantiation(self):
@@ -266,13 +276,101 @@ class TestClassPostmark:
 
 # Text Subclasses
 # ---------------
-class DateStamp:
+class TestClassDateISO8601:
+    """test for class DateISO8601"""
+
+    def test_instantiation(self):
+        """test instantiation of DateISO8601 Class"""
+        assert DateISO8601()
+        assert DateISO8601("1912-08-30T22:10")
+        assert DateISO8601("1908-12-28T12:XX")
+        assert str(DateISO8601())
+        assert str(DateISO8601("1912-08-30T22:10"))
+
+    def test_eq(self):
+        """test __eq__ method"""
+        assert DateISO8601() == DateISO8601()
+        assert DateISO8601("1912-08-30T22:10") == DateISO8601("1912-08-30T22:10")
+        assert DateISO8601("1908-12-28T12:XX") == DateISO8601("1908-12-28T12:XX")
+        assert DateISO8601("1912-08-30T22:10") != DateISO8601()
+        assert DateISO8601("1912-08-30T22:10") != DateISO8601("1908-12-28T12:XX")
+        assert DateISO8601() != DateISO8601("1908-12-28T12:XX")
+
+    def test_compare(self):
+        """test __lt__ et __le__ methods"""
+        assert not DateISO8601() < DateISO8601()
+        assert DateISO8601() <= DateISO8601()
+        assert DateISO8601() >= DateISO8601()
+        assert DateISO8601("1912-08-30T22:10") < DateISO8601()  # effet de bord
+        assert DateISO8601("1912-08-30T22:10") > DateISO8601("1908-12-28T12:XX")
+
+
+class TestClassDateStamp:
     """test for class DateStamp"""
-    # TODO
-    pass
+
+    def test_instantiation(self):
+        """test instantiation of DateStamp Class"""
+        assert DateStamp()
+        assert DateStamp(True, None,"EPERNAY","1907-08-05T22:30","MARNE",False,None,"post office","good")
+        assert DateStamp(False, None,"GIVENY","XXXX-10-17T15:XX","MARNE",False,None,"post office","mediocre")
+
+    def test_invalid(self):
+        """test invalid instantiation of a non-manually annotated Postmark without confidence"""
+        with pytest.raises(ValueError):
+            # anciens type de DateStamp
+            DateStamp(True, None, "EPERNAY", "1907-08-05T22:30", "MARNE", False, None, "date stamp", "good")
+            # qualité inconnue
+            DateStamp(True, None, "EPERNAY", "1907-08-05T22:30", "MARNE", False, None, "post office", "ok")
+        with pytest.raises(TypeError):
+            DateStamp(True, None, "EPERNAY", "1907-08-05T22:30", "MARNE", False, None, 1, "good")
+            DateStamp(True, None, "EPERNAY", "1907-08-05T22:30", "MARNE", False, None, "post office", 1)
+            DateStamp(True, None, "EPERNAY", 1907, "MARNE", False, None, "post office", "good")
+
+    def test_get_cls_name(self):
+        """test get_cls_name() method"""
+        assert DateStamp().get_cls_name() == 'DateStamp'
+
+    def test_to_dict(self):
+        """test to_dict() method"""
+        assert DateStamp().to_dict() == {'is_manual': None, 'postal_agency': None, 'date': 'XXXX-XX-XXTXX:XX',
+                                         'department': None, 'starred_hour': False, 'collection': None,
+                                         'mark_type': 'post office', 'quality': 'poor'}
+        assert DateStamp(True,None,"EPERNAY","1907-08-05T22:30","MARNE",
+                         False,None,"post office","good").to_dict() == {'is_manual': True,
+                                                                        'postal_agency': 'EPERNAY',
+                                                                        'date': '1907-08-05T22:30',
+                                                                        'department': 'MARNE',
+                                                                        'starred_hour': False,
+                                                                        'collection': None,
+                                                                        'mark_type': 'post office',
+                                                                        'quality': 'good'}
+
+    def test_from_dict(self):
+        """test from_dict() method"""
+        assert DateStamp() == DateStamp.from_dict({'is_manual': None})
+        assert DateStamp() == DateStamp.from_dict(DateStamp().to_dict())
+        assert DateStamp(True, None, "EPERNAY", "1907-08-05T22:30",
+                         "MARNE", False, None, "post office", "good") == DateStamp.from_dict({'is_manual': True,
+                                                                                              'postal_agency': 'EPERNAY',
+                                                                                              'date': '1907-08-05T22:30',
+                                                                                              'department': 'MARNE',
+                                                                                              'starred_hour': False,
+                                                                                              'collection': None,
+                                                                                              'mark_type': 'post office',
+                                                                                              'quality': 'good'})
+
+    def test_to_series(self):
+        """test to_series() method"""
+        assert DateStamp().to_series().any()
+        assert DateStamp(True, None, "EPERNAY", "1907-08-05T22:30", "MARNE",
+                         False, None, "post office", "good").to_series().any()
+
+    def test_from_series(self):
+        """test from_series() method"""
+        assert DateStamp() == DateStamp.from_series(DateStamp().to_series())
 
 
-class Stamp:
+class TestClassPostageStamp:
     """test for class PostageStamp"""
 
     def test_instantiation(self):

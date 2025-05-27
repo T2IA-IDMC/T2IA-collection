@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Dict
-from enum import Enum
+from enum import StrEnum, IntEnum
 import importlib.util  # pour détecter si d'autres librairies sont installées
 
 # ======================================================================================================================
@@ -57,17 +57,36 @@ class Content(ABC):
 # ======================================================================================================================
 # TEXT Abstract Class & subclasses
 # ======================================================================================================================
+# Définir l'énumération pour les orientations
+class Orientation(IntEnum):
+    """Enumération des orientations pour les Text, les BoundingBox et les Postcard"""
+    ZERO = 0
+    NINETY = 90
+    ONE_EIGHTY = 180
+    TWO_SEVENTY = 270
+
+    def __repr__(self):
+        return self.value
+
 
 @dataclass
 class Text(Content):
     """Sous-classe de contenu pour les textes"""
     ocr_result: str = ""
     keywords: List[str] | None = None
-    orientation: int = 0
+    orientation: Orientation | int = 0
 
     def __post_init__(self):
         super().__post_init__()
         self.keywords = self.keywords or []
+        # check orientation
+        if isinstance(self.orientation, int):
+            try:
+                self.orientation = Orientation(self.orientation)
+            except ValueError:
+                raise ValueError(f"orientation must be one of : {[e.value for e in Orientation]}")
+        elif not isinstance(self.orientation, Orientation):
+            raise TypeError(f"orientation must be an int or {Orientation.__module__}.{Orientation.__name__}")
 
     def __contains__(self, word):
         """tests de contenance sur ocr"""
@@ -123,10 +142,110 @@ class Postmark(Content):
     # TODO : autres attributs et méthodes ?
 
 
-# Postmark Subclasses
+# DateStamp Subclasse
 # -------------------
 
+# Définir l'énumération pour les types de DateStamp
+class DateStampType(StrEnum):
+    """Enumération des types de tampons"""
+    POST_OFFICE = "post office"
+    AUXILIARY_OFFICE = "auxiliary post office"
+    LINE_CONVEYOR = "line conveyor"
+    DISTRIBUTION_OFFICE = "distribution office"  # TODO : à ajouter dans le dataset
 
+    def __repr__(self):
+        return self.value
+
+# Définir l'énumération pour les qualités de DateStamp
+class DateStampQuality(StrEnum):
+    """Enumération des qualités de tampons"""
+    POOR = "poor"
+    MEDIOCRE = "mediocre"
+    GOOD = "good"
+
+    def __repr__(self):
+        return self.value
+
+# classe pour la date
+@dataclass
+class DateISO8601:
+    date_str: str | None = None
+    # TODO : ajouter conversion pour objets datetime ?
+    # TODO : ajouter vérification du format ISO 8601
+
+    def __post_init__(self):
+        if self.date_str is None:
+            self.date_str = "XXXX-XX-XXTXX:XX"
+
+    def __repr__(self):
+        return self.date_str
+
+    def __eq__(self, other):
+        return self.date_str == other.date_str
+
+    def __le__(self, other):
+        return self.date_str <= other.date_str
+
+    def __lt__(self, other):
+        return self.date_str < other.date_str
+
+    def is_valid(self):
+        pass
+        # TODO
+
+
+@dataclass
+class DateStamp(Postmark):
+    """Subclass of Postmark for obliteration stamps (date stamps)"""
+    postal_agency: str | None = None
+    date: DateISO8601 | str | None = None
+    department:  str | None = None
+    starred_hour: bool = False
+    collection: str | None = None
+    mark_type: DateStampType | str = DateStampType.POST_OFFICE
+    quality: DateStampQuality | str = DateStampQuality.POOR
+
+    def __post_init__(self):
+        # pas de super().__post_init__() car on n'obtient pas de confiance en sortie de GPT4o
+        # check mark_type
+        if isinstance(self.mark_type, str):
+            try:
+                self.mark_type = DateStampType(self.mark_type)
+            except ValueError:
+                raise ValueError(f"mark_type must be one of : {[e.value for e in DateStampType]}")
+        elif not isinstance(self.mark_type, DateStampType):
+            raise TypeError(f"mark_type must be a str or {DateStampType.__module__}.{DateStampType.__name__}")
+
+        # check quality
+        if isinstance(self.quality, str):
+            try:
+                self.quality = DateStampQuality(self.quality)
+            except ValueError:
+                raise ValueError(f"mark_type must be one of : {[e.value for e in DateStampQuality]}")
+        elif not isinstance(self.quality, DateStampQuality):
+            raise TypeError(f"quality must be a str or {DateStampQuality.__module__}.{DateStampQuality.__name__}")
+
+        # str date to DateISO8601 object
+        if isinstance(self.date, str):
+            self.date = DateISO8601(self.date)
+        elif self.date is None:
+            self.date = DateISO8601(self.date)
+        elif not isinstance(self.date, DateISO8601):
+            # TODO : ajouter conversion pour objets datetime ?
+            raise TypeError(f"date must be an str or {DateISO8601.__module__}.{DateISO8601.__name__}")
+
+    def to_dict(self):
+        """Renvoie un dictionnaire avec le contenu de la classe"""
+        res = self.__dict__
+        del res['confidence']  # pas utile car on n'obtient pas de confiance en sortie de GPT4o
+        res['mark_type'] = self.mark_type.value  # pour accéder à la valeur
+        res['quality'] = self.quality.value  # pour accéder à la valeur
+        res['date'] = str(self.date)
+        return res
+
+
+# Other Postmark Subclasses
+# -------------------------
 
 @dataclass
 class PostageStamp(Postmark):
