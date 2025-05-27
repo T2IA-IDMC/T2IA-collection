@@ -2,9 +2,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Dict
 from enum import Enum
+import importlib.util  # pour détecter si d'autres librairies sont installées
 
 # ======================================================================================================================
-# CONTENT & abstract subclasses
+# CONTENT Abstract Class
 # ======================================================================================================================
 
 @dataclass
@@ -18,15 +19,38 @@ class Content(ABC):
         if not self.is_manual and self.confidence is None:
             raise ValueError("Confidence must be set if the content is not manually set.")
 
+    @classmethod
+    def get_cls_name(cls):
+        """Retourne le nom de la classe"""
+        return cls.__name__
+
     def to_dict(self) -> Dict:
         """Renvoie un dictionnaire avec le contenu de la classe"""
-        return {'is_manual': self.is_manual, 'confidence': self.confidence}
+        return self.__dict__
 
     @classmethod
     def from_dict(cls, data):
         """Permet d'instancier la classe à partir d'un dictionnaire"""
-        return cls(is_manual=data["is_manual"], confidence=data["confidence"])
+        return cls(**data)
 
+    def to_series(self):
+        """Renvoie un dataframe pandas avec le contenu de la classe"""
+        if importlib.util.find_spec("pandas") is not None:
+            import pandas as pd
+            return pd.Series(self.to_dict(), name=self.get_cls_name())
+        raise NotImplementedError("pandas library is not installed, use 'pip install pandas'")
+
+    @classmethod
+    def from_series(cls, data):
+        """Permet d'instancier la classe à partir d'une Series pandas"""
+        if importlib.util.find_spec("pandas") is not None:
+            return cls(**data.to_dict())
+        raise NotImplementedError("pandas library is not installed, use 'pip install pandas'")
+
+
+# ======================================================================================================================
+# TEXT Abstract Class & subclasses
+# ======================================================================================================================
 
 @dataclass
 class Text(Content):
@@ -45,7 +69,7 @@ class Text(Content):
 
     def __iter__(self):
         """iteration sur les mots clés"""
-        return iter(self.keywords)
+        return iter(self.keywords)  # garder ça ou faire key: value (pour dict() par exemple)
 
     def set_keywords(self):
         # TODO : implémenter la recherche de mots-clés dans les résultats d'OCR
@@ -58,18 +82,29 @@ class Text(Content):
         # TODO : voir comment se débarrasser des caractères spéciaux
         return self.ocr_result.split()
 
-    def to_dict(self) -> Dict:
-        res =  {**super().to_dict(),
-                'ocr_result': self.ocr_result,
-                'keywords': self.keywords,
-                'orientation': self.orientation}
-        return res
 
-    @classmethod
-    def from_dict(cls, data):
-        res = cls(is_manual=data['is_manual'], # depuis la classe Content
-                  confidence= data['confidence'], # depuis la classe Content
-                  ocr_result=data.get('ocr_result', ""),
-                  keywords=data.get('keywords', None),
-                  orientation=data.get('orientation', 0))
-        return res
+# Text Subclasses
+# ---------------
+
+@dataclass
+class Printed(Text):
+    """Subclass of Text for printed text"""
+    is_editor: bool = False
+    # TODO : autres attributs et méthodes ?
+
+
+@dataclass
+class Handwritten(Text):
+    """Subclass of Text for handwritten text"""
+    pass
+
+@dataclass
+class SceneText(Text):
+    """Subclass of Text for scene text"""
+    pass
+
+
+# ======================================================================================================================
+# POSTMARK Abstract Class & subclasses
+# ======================================================================================================================
+
