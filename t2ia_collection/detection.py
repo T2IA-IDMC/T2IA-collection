@@ -119,7 +119,7 @@ class BoundingBox:
 
 def bbox_from_coord(
         coords: Sequence[float],
-        coord_format: Literal['xywh', 'xywhn', 'xyxy', 'xyxyn', 'xxyy', 'xxyyn'] = 'xywhn',
+        coord_format: Literal['xywh', 'xywhn', 'xyxy', 'xyxyn', 'xxyy', 'xxyyn'] = 'xywhn',  # TODO : à faire en Enum
         img_size: Optional[Tuple[float, float]] = None) -> BoundingBox:
     """Renvoie un objet BoundingBox en fonction des coordonnées données en entrée, de leur format, ainsi que des dimensions de l'image (largeur, hauteur) si les coordonnées ne sont pas normalisées."""
     # test de la longueur des coordonnées (forcément égal à 4)

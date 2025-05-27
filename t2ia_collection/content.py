@@ -93,14 +93,14 @@ class Text(Content):
 # ---------------
 
 @dataclass
-class Printed(Text):
+class PrintedText(Text):
     """Subclass of Text for printed text"""
     is_editor: bool = False
     # TODO : autres attributs et méthodes ?
 
 
 @dataclass
-class Handwritten(Text):
+class HandwrittenText(Text):
     """Subclass of Text for handwritten text"""
     pass
     # TODO : autres attributs et méthodes ?
@@ -129,7 +129,7 @@ class Postmark(Content):
 
 
 @dataclass
-class Stamp(Postmark):
+class PostageStamp(Postmark):
     """Subclass of Postmark for stamps"""
     country: str = ""
     color: str | None = None

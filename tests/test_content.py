@@ -179,30 +179,30 @@ class TestClassText:
 # Text Subclasses
 # ---------------
 class TestClassPrinted:
-    """test for class Printed"""
+    """test for class PrintedText"""
 
     def test_instantiation(self):
-        """test instantiation of Printed Class"""
-        assert Printed()
-        assert Printed(is_manual=True, ocr_result='test du contenu manuel', orientation=180)
-        assert Printed(False, 0.8, ocr_result='test du contenu prédit', orientation=90, is_editor=True)
+        """test instantiation of PrintedText Class"""
+        assert PrintedText()
+        assert PrintedText(is_manual=True, ocr_result='test du contenu manuel', orientation=180)
+        assert PrintedText(False, 0.8, ocr_result='test du contenu prédit', orientation=90, is_editor=True)
 
     def test_get_cls_name(self):
         """test get_cls_name() method"""
-        assert Printed().get_cls_name() == 'Printed'
+        assert PrintedText().get_cls_name() == 'PrintedText'
 
 
 class TestClassHandwritten:
-    """test for class Handwritten"""
+    """test for class HandwrittenText"""
 
     def test_instantiation(self):
-        """test instantiation of Handwritten Class"""
-        assert Handwritten()
-        assert Handwritten(False, 0.8, ocr_result='test du contenu prédit', orientation=90)
+        """test instantiation of HandwrittenText Class"""
+        assert HandwrittenText()
+        assert HandwrittenText(False, 0.8, ocr_result='test du contenu prédit', orientation=90)
 
     def test_get_cls_name(self):
         """test get_cls_name() method"""
-        assert Handwritten().get_cls_name() == 'Handwritten'
+        assert HandwrittenText().get_cls_name() == 'HandwrittenText'
 
 
 class TestClassSceneText:
@@ -273,16 +273,16 @@ class DateStamp:
 
 
 class Stamp:
-    """test for class Stamp"""
+    """test for class PostageStamp"""
 
     def test_instantiation(self):
-        """test instantiation of Stamp Class"""
-        assert Stamp()
-        assert Stamp(False, 0.65, country= "France", color='red', price=0.5)
+        """test instantiation of PostageStamp Class"""
+        assert PostageStamp()
+        assert PostageStamp(False, 0.65, country="France", color='red', price=0.5)
 
     def test_get_cls_name(self):
         """test get_cls_name() method"""
-        assert Stamp().get_cls_name() == 'Stamp'
+        assert PostageStamp().get_cls_name() == 'PostageStamp'
 
 
 class TestClassOtherMark:
