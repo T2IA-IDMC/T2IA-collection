@@ -58,7 +58,7 @@ class TestClassContent:
         assert Content().to_dict() == {'is_manual': True, 'confidence': None}
         assert Content(False, 0.8).to_dict() == {'is_manual': False, 'confidence': 0.8}
 
-    def test_from_dict(self, pred_text, manual_text, dict_pred_text, dict_manual_text):
+    def test_from_dict(self):
         """test from_dict() method"""
         assert Content.from_dict({'is_manual': False, 'confidence': 0.75}) == Content(False, 0.75)
         assert Content.from_dict({}) == Content()
@@ -141,7 +141,6 @@ class TestClassText:
         assert manual_text.to_dict() == dict_manual_text # test manuel
         assert pred_text.to_dict() == dict_pred_text # test prédit
 
-
     def test_from_dict(self, pred_text, manual_text, dict_pred_text, dict_manual_text):
         assert Text.from_dict({'is_manual': False, 'confidence': 0.75}) == Text(is_manual=False, confidence=0.75, ocr_result='', keywords=[], orientation=0)  # défaut depuis Content
         assert Text.from_dict(dict_manual_text) == manual_text
@@ -187,3 +186,68 @@ class TestClassSceneText:
     def test_get_cls_name(self):
         """test get_cls_name() method"""
         assert SceneText().get_cls_name() == 'SceneText'
+
+
+# ======================================================================================================================
+# POSTMARKS Abstract Class & subclasses
+# ======================================================================================================================
+class TestClassPostmark:
+    """test for class Postmark"""
+
+    def test_instantiation(self):
+        """test instantiation of Postmark Class"""
+        assert Postmark()
+        assert Postmark(False, 0.78)
+
+    def test_invalid(self):
+        """test invalid instantiation of a non-manually annotated Postmark without confidence"""
+        with pytest.raises(ValueError):
+            Postmark(False)
+
+    def test_get_cls_name(self):
+        """test get_cls_name() method"""
+        assert Postmark().get_cls_name() == 'Postmark'
+
+    def test_to_dict(self, pred_text, manual_text, dict_pred_text, dict_manual_text):
+        assert Postmark().to_dict() == {'is_manual': True, 'confidence': None} # test manuel
+        assert Postmark(False, 0.78).to_dict() == {'is_manual': False, 'confidence': 0.78} # test prédit
+
+    def test_from_dict(self):
+        """test from_dict() method"""
+        assert Postmark.from_dict({'is_manual': False, 'confidence': 0.75}) == Postmark(False, 0.75)
+        assert Postmark.from_dict({}) == Postmark()
+        assert Postmark.from_dict(Postmark(False, 0.8).to_dict()) == Postmark(False, 0.8)
+
+
+# Text Subclasses
+# ---------------
+class DateStamp:
+    """test for class DateStamp"""
+    # TODO
+    pass
+
+
+class Stamp:
+    """test for class Stamp"""
+
+    def test_instantiation(self):
+        """test instantiation of Stamp Class"""
+        assert Stamp()
+        assert Stamp(False, 0.65, country= "France", color='red', price=0.5)
+
+    def test_get_cls_name(self):
+        """test get_cls_name() method"""
+        assert Stamp().get_cls_name() == 'Stamp'
+
+
+class TestClassOtherMark:
+    """test for class OtherMark"""
+
+    def test_instantiation(self):
+        """test instantiation of OtherMark Class"""
+        assert OtherMark()
+        assert OtherMark(False, 0.82, is_editor=True)
+
+    def test_get_cls_name(self):
+        """test get_cls_name() method"""
+        assert OtherMark().get_cls_name() == 'OtherMark'

@@ -108,3 +108,25 @@ class SceneText(Text):
 # POSTMARK Abstract Class & subclasses
 # ======================================================================================================================
 
+@dataclass
+class Postmark(Content):
+    """Sous-classe de contenu pour les marqueurs postaux"""
+    pass
+
+
+# Postmark Subclasses
+# -------------------
+
+
+
+@dataclass
+class Stamp(Postmark):
+    """Subclass of Postmark for stamps"""
+    country: str = ""
+    color: str = None
+    price: float = None
+
+@dataclass
+class OtherMark(Postmark):
+    """Subclass of Postmark for other marks"""
+    is_editor: bool = False
