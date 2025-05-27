@@ -174,12 +174,12 @@ class Detection:
     """Classe pour les différentes détections"""
     bbox: BoundingBox
     is_manual: bool = True
-    confidence: float = None
-    content: Content = None  # TODO : faire le lien avec les classes Content
+    confidence: float | None = None
+    content: Content | None = None  # TODO : faire le lien avec les classes Content
 
     def __post_init__(self):
         """Vérification de la présence d'un score de confiance si contenu non annoté manuellement"""
-        if not self.is_manual and self.confidence is None:
+        if (self.is_manual is False) and self.confidence is None:
             raise ValueError("Confidence must be set if the detection is not manually set.")
 
     def has_content(self) -> bool:

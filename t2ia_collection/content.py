@@ -11,8 +11,8 @@ import importlib.util  # pour détecter si d'autres librairies sont installées
 @dataclass
 class Content(ABC):
     """Classe abstraite pour toutes les autres formes de contenu text et marque postales"""
-    is_manual: bool = None
-    confidence: float = None
+    is_manual: bool | None = None
+    confidence: float | None = None
 
     def __post_init__(self):
         """Vérification de la présence d'un score de confiance si contenu non annoté manuellement"""
@@ -62,7 +62,7 @@ class Content(ABC):
 class Text(Content):
     """Sous-classe de contenu pour les textes"""
     ocr_result: str = ""
-    keywords: List[str] = None
+    keywords: List[str] | None = None
     orientation: int = 0
 
     def __post_init__(self):
@@ -132,8 +132,8 @@ class Postmark(Content):
 class Stamp(Postmark):
     """Subclass of Postmark for stamps"""
     country: str = ""
-    color: str = None
-    price: float = None
+    color: str | None = None
+    price: float | None = None
     # TODO : autres attributs et méthodes ?
 
 @dataclass
