@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import List, Dict
+from dataclasses import dataclass
+from typing import List, Iterator
 from enum import StrEnum, IntEnum
+import math
 import importlib.util  # pour détecter si d'autres librairies sont installées
 
 # ======================================================================================================================
@@ -22,20 +23,24 @@ class Content(ABC):
             self.confidence = None  # si manuel ou non processé pas de confiance à associer
 
     @classmethod
-    def get_cls_name(cls):
+    def get_cls_name(cls) -> str:
         """Retourne le nom de la classe"""
         return cls.__name__
 
-    def is_processed(self):
+    # Les tests :
+    # -----------
+    def isprocessed(self) -> bool:
         """Vérifie si le contenu a été extrait"""
         return self.is_manual is not None
 
-    def to_dict(self) -> Dict:
+    # pour exporter/importer :
+    # ------------------------
+    def to_dict(self) -> dict:
         """Renvoie un dictionnaire avec le contenu de la classe"""
         return self.__dict__
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data:dict) -> "Content":
         """Permet d'instancier la classe à partir d'un dictionnaire"""
         return cls(**data)
 
@@ -47,7 +52,7 @@ class Content(ABC):
         raise NotImplementedError("pandas library is not installed, use 'pip install pandas'")
 
     @classmethod
-    def from_series(cls, data):
+    def from_series(cls, data) -> "Content":
         """Permet d'instancier la classe à partir d'une Series pandas"""
         if importlib.util.find_spec("pandas") is not None:
             return cls(**data.to_dict())
@@ -65,8 +70,28 @@ class Orientation(IntEnum):
     ONE_EIGHTY = 180
     TWO_SEVENTY = 270
 
-    def __repr__(self):
-        return self.value
+    def __repr__(self) -> str:
+        return str(self.value)
+
+    @staticmethod
+    def from_input(theta: int | float | str | None) -> "Orientation":
+        """Orientation à partir d'un input correspondant à un angle multiple de 90°"""
+        # si theta est None == 0
+        if theta is None:
+            theta = Orientation.ZERO
+        # Test de la validité de l'angle
+        try:
+            # normalisation de l'angle
+            theta = float(theta) % 360
+            round(theta / 90) * 90 % 360
+            theta = Orientation(theta)
+        except Exception as e:
+            if type(e) is ValueError:
+                raise ValueError(f"theta must be an angle in degrees, multiple of 90°")
+            elif type(e) is TypeError:
+                raise TypeError(f"theta must be a int, str, float, None or {Orientation.__module__}.{Orientation.__name__}")
+
+        return Orientation(theta)
 
 
 @dataclass
@@ -74,38 +99,51 @@ class Text(Content):
     """Sous-classe de contenu pour les textes"""
     ocr_result: str = ""
     keywords: List[str] | None = None
-    orientation: Orientation | int = 0
+    # angle par lequel l'image doit être rotatée pour que le texte soit dans le bon sens :
+    orientation: Orientation | int | float | str | None = 0
 
     def __post_init__(self):
-        super().__post_init__()
+        super().__post_init__()  # vérifications de la classe Content
         self.keywords = self.keywords or []
-        # check orientation
-        if isinstance(self.orientation, int):
-            try:
-                self.orientation = Orientation(self.orientation)
-            except ValueError:
-                raise ValueError(f"orientation must be one of : {[e.value for e in Orientation]}")
-        elif not isinstance(self.orientation, Orientation):
-            raise TypeError(f"orientation must be an int or {Orientation.__module__}.{Orientation.__name__}")
+        # Test de la validité de l'angle
+        if not isinstance(self.orientation, Orientation):
+            self.orientation = Orientation.from_input(self.orientation)
 
-    def __contains__(self, word):
+    def __contains__(self, word) -> bool:
         """tests de contenance sur ocr"""
         return word in self.ocr_result  # garder aini ou faire sur les mots-clés ?
 
-    def __iter__(self):
-        """iteration sur les mots clés"""
+    def __iter__(self) -> Iterator[str]:
+        """iteration sur les mots-clés"""
         return iter(self.keywords)  # garder ça ou faire key: value (pour dict() par exemple)
 
     def set_keywords(self):
         # TODO : implémenter la recherche de mots-clés dans les résultats d'OCR
         pass
 
-    def get_keywords(self):
+    def get_keywords(self) -> List[str]:
         return self.keywords
 
-    def word_list(self):
+    def word_list(self) -> List[str]:
         # TODO : voir comment se débarrasser des caractères spéciaux
         return self.ocr_result.split()
+
+    # Les rotations :
+    def rotate(self, theta: Orientation | int | float | str | None = 90) -> "Text":
+        """
+        Rotation de l'orientation du texte par rapport à une rotation de l'image
+        """
+        dict_text = self.to_dict()
+        # Test de la validité de l'angle
+        if not isinstance(theta, Orientation):
+            theta = Orientation.from_input(theta)
+
+        # nouvelle orientation
+        dict_text["orientation"] = self.orientation.value - theta.value
+
+        return self.__class__.from_dict(dict_text)
+
+
 
 
 # Text Subclasses
@@ -153,8 +191,8 @@ class DateStampType(StrEnum):
     LINE_CONVEYOR = "line conveyor"
     DISTRIBUTION_OFFICE = "distribution office"  # TODO : à ajouter dans le dataset
 
-    def __repr__(self):
-        return self.value
+    def __repr__(self) -> str:
+        return str(self.value)
 
 # Définir l'énumération pour les qualités de DateStamp
 class DateStampQuality(StrEnum):
@@ -163,8 +201,8 @@ class DateStampQuality(StrEnum):
     MEDIOCRE = "mediocre"
     GOOD = "good"
 
-    def __repr__(self):
-        return self.value
+    def __repr__(self) -> str:
+        return str(self.value)
 
 # classe pour la date
 @dataclass
@@ -177,19 +215,21 @@ class DateISO8601:
         if self.date_str is None:
             self.date_str = "XXXX-XX-XXTXX:XX"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.date_str
 
-    def __eq__(self, other):
+    def __eq__(self, other: "DateISO8601") -> bool:
         return self.date_str == other.date_str
 
-    def __le__(self, other):
+    def __le__(self, other: "DateISO8601") -> bool:
         return self.date_str <= other.date_str
 
-    def __lt__(self, other):
+    def __lt__(self, other: "DateISO8601") -> bool:
         return self.date_str < other.date_str
 
-    def is_valid(self):
+    # Les tests :
+    # -----------
+    def isvalid(self):
         pass
         # TODO
 
@@ -234,7 +274,7 @@ class DateStamp(Postmark):
             # TODO : ajouter conversion pour objets datetime ?
             raise TypeError(f"date must be an str or {DateISO8601.__module__}.{DateISO8601.__name__}")
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         """Renvoie un dictionnaire avec le contenu de la classe"""
         res = self.__dict__
         del res['confidence']  # pas utile car on n'obtient pas de confiance en sortie de GPT4o
@@ -260,3 +300,8 @@ class OtherMark(Postmark):
     """Subclass of Postmark for other marks"""
     is_editor: bool = False
     # TODO : autres attributs et méthodes ?
+
+
+# ======================================================================================================================
+# ANY CONTENT from dict {Content.get_cls_name(): Content.to_dict()}
+# ======================================================================================================================

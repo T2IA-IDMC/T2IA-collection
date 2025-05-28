@@ -15,7 +15,7 @@ def dict_manual_text():
             'confidence': None,
             'ocr_result': 'test du contenu manuel',
             'keywords': ['test', 'manuel'],
-            'orientation': 90}
+            'orientation': 0}
 
 @pytest.fixture
 def dict_pred_text():
@@ -27,7 +27,7 @@ def dict_pred_text():
 
 @pytest.fixture
 def manual_text():
-    return Text(is_manual=True, ocr_result='test du contenu manuel', orientation=90, keywords=['test', 'manuel'])
+    return Text(is_manual=True, ocr_result='test du contenu manuel', orientation=0, keywords=['test', 'manuel'])
 
 @pytest.fixture
 def pred_text():
@@ -56,11 +56,11 @@ class TestClassContent:
         """test get_cls_name() method"""
         assert Content().get_cls_name() == 'Content'
 
-    def test_is_processed(self):
-        """test is_processed() method"""
-        assert not Content().is_processed()
-        assert Content(True).is_processed()
-        assert Content(False, 0.8).is_processed()
+    def test_isprocessed(self):
+        """test isprocessed() method"""
+        assert not Content().isprocessed()
+        assert Content(True).isprocessed()
+        assert Content(False, 0.8).isprocessed()
 
     def test_to_dict(self):
         """test to_dict() method"""
@@ -111,23 +111,33 @@ class TestClassText:
         assert Text(is_manual=True,
                     confidence=0.54,
                     ocr_result='test du contenu manuel',
-                    orientation=90,
+                    orientation=0,
                     keywords=['test', 'manuel']) == manual_text
         assert Text(is_manual=True,
                     confidence=0.54,
                     ocr_result='test du contenu manuel',
-                    orientation=Orientation.NINETY,
+                    orientation=Orientation.ZERO,
                     keywords=['test', 'manuel']) == manual_text
         assert Text(False, 0.8, ocr_result='test du contenu prédit', orientation=90)
+        # test normalisation de l'angle
+        assert Text() == Text(orientation=None)
+        assert Text(ocr_result='test', orientation=90) == Text(ocr_result='test', orientation='90')
+        assert Text(ocr_result='test', orientation=90) == Text(ocr_result='test', orientation=-270)
+        assert Text(ocr_result='test', orientation=90) == Text(ocr_result='test', orientation=90.0)
+
 
     def test_invalid(self):
         """test invalid instantiation of a non-manual Text without confidence"""
         with pytest.raises(ValueError):
             Text(False, ocr_result='test du contenu prédit', orientation=90)
+        with pytest.raises(ValueError):
             Text(orientation=45)
+        with pytest.raises(ValueError):
             Text(orientation=143)
+        with pytest.raises(ValueError):
+            Text(orientation='lol')
         with pytest.raises(TypeError):
-            Text(orientation='90')
+            Text(orientation=[0, 90, 0])
 
 
     def test_get_cls_name(self, manual_text, pred_text):
@@ -136,11 +146,11 @@ class TestClassText:
         assert manual_text.get_cls_name() == 'Text'
         assert pred_text.get_cls_name() == 'Text'
 
-    def test_is_processed(self, manual_text, pred_text):
-        """test is_processed() method"""
-        assert not Text().is_processed()
-        assert manual_text.is_processed()
-        assert pred_text.is_processed()
+    def test_isprocessed(self, manual_text, pred_text):
+        """test isprocessed() method"""
+        assert not Text().isprocessed()
+        assert manual_text.isprocessed()
+        assert pred_text.isprocessed()
 
     def test_contains(self, pred_text, manual_text):
         """test of __contains__ method"""
@@ -184,6 +194,18 @@ class TestClassText:
         assert Text.from_dict({'is_manual': None, 'confidence': 0.75}) == Text()
         assert Text.from_dict({'is_manual': True, 'confidence': 0.75}) == Text(True)
         assert Text.from_dict(dict_pred_text) == pred_text
+
+    @pytest.mark.parametrize("init_orient, rotation, final_orient", [(90, 0, 90),
+                                                                     (0, None, 0),
+                                                                     (0, 270, "90"),
+                                                                     (0, 270, -270),
+                                                                     (90, 90, 0),
+                                                                     (90, -90, 180),
+                                                                     (90, "-180", 270)])
+    def test_rotate(self, init_orient, rotation, final_orient):
+        assert Text(orientation=init_orient).rotate(rotation) == Text(orientation=final_orient)
+
+
 
 
 # Text Subclasses
@@ -251,11 +273,11 @@ class TestClassPostmark:
         """test get_cls_name() method"""
         assert Postmark().get_cls_name() == 'Postmark'
 
-    def test_is_processed(self):
-        """test is_processed() method"""
-        assert not Postmark().is_processed()
-        assert Postmark(True).is_processed()
-        assert Postmark(False, 0.8).is_processed()
+    def test_isprocessed(self):
+        """test isprocessed() method"""
+        assert not Postmark().isprocessed()
+        assert Postmark(True).isprocessed()
+        assert Postmark(False, 0.8).isprocessed()
 
     def test_to_dict(self, pred_text, manual_text, dict_pred_text, dict_manual_text):
         assert Postmark().to_dict() == {'is_manual': None, 'confidence': None} # test manuel
@@ -319,11 +341,16 @@ class TestClassDateStamp:
         with pytest.raises(ValueError):
             # anciens type de DateStamp
             DateStamp(True, None, "EPERNAY", "1907-08-05T22:30", "MARNE", False, None, "date stamp", "good")
+        with pytest.raises(ValueError):
             # qualité inconnue
             DateStamp(True, None, "EPERNAY", "1907-08-05T22:30", "MARNE", False, None, "post office", "ok")
+
+        # wrong types
         with pytest.raises(TypeError):
             DateStamp(True, None, "EPERNAY", "1907-08-05T22:30", "MARNE", False, None, 1, "good")
+        with pytest.raises(TypeError):
             DateStamp(True, None, "EPERNAY", "1907-08-05T22:30", "MARNE", False, None, "post office", 1)
+        with pytest.raises(TypeError):
             DateStamp(True, None, "EPERNAY", 1907, "MARNE", False, None, "post office", "good")
 
     def test_get_cls_name(self):

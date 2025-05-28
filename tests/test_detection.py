@@ -1,16 +1,16 @@
 import pytest
-from t2ia_collection.detection import BoundingBox, bbox_from_coord, Detection
+from t2ia_collection.detection import *
 import math
 
 # ======================================================================================================================
 # FUNCTIONS
 # ======================================================================================================================
 
-def isclose_float_sequences(sequence_1, sequence_2, rel_tol=1e-06, abs_tol=0.0):
+def isclose_float_sequences(sequence_1, sequence_2, rtol=1e-05, atol=1e-08):
     """compare des séquences de float élément par élément avec une certaine tolérance"""
     res = True
     for el_1, el_2 in zip(sequence_1, sequence_2):
-        res &= math.isclose(el_1, el_2, rel_tol=rel_tol, abs_tol=abs_tol)
+        res &= math.isclose(el_1, el_2, rel_tol=rtol, abs_tol=atol)
     return res
 
 
@@ -64,8 +64,8 @@ class TestClassBoundingBox:
 
     def test_validity(self, bbox, invalid_bbox):
         """test validity of BoundingBox"""
-        assert bbox.is_valid()
-        assert not invalid_bbox.is_valid()
+        assert bbox.isvalid()
+        assert not invalid_bbox.isvalid()
 
     def test_equality(self, bbox, invalid_bbox):
         """test equality of BoundingBox"""
@@ -92,16 +92,20 @@ class TestClassBoundingBox:
         assert bbox.rotate(-90) == bbox.rotate(270)
         assert bbox.rotate(180) == bbox.rotate(-180)
         assert bbox.rotate(90) == bbox.rotate(450)
-        assert bbox.rotate(math.pi/2, radians=True) == bbox.rotate(90)
-        assert bbox.rotate(math.pi, radians=True) == bbox.rotate(- math.pi, radians=True)
         assert bbox.rotate(90) == BoundingBox(x=0.1604120135307312, y=0.25560420751571655,
                                               w=0.2762804627418518, h=0.15120507776737213)
+        assert bbox.rotate("90") == bbox.rotate(90)
+        assert bbox == bbox.rotate(None)
 
     def test_invalid_rotation(self, bbox):
         """test rotation of BoundingBox avec des angles invalides"""
         with pytest.raises(ValueError):
             bbox.rotate(68)
-            bbox.rotate(math.pi + 0.1)
+        with pytest.raises(ValueError):
+            bbox.rotate("lolilol")
+        with pytest.raises(TypeError):
+            bbox.rotate([0, 90, 0])
+
 
     def test_to_dict(self, bbox, test_bboxes):
         """test BoundingBox transformation to dict"""
@@ -113,26 +117,45 @@ class TestClassBoundingBox:
         assert bbox == BoundingBox.from_dict(bbox.to_dict())
 
 
-class TestFuncBboxFromCoord:
-    """test for function bbox_from_coord(coords, format, img_size) -> BoundingBox"""
+class TestBboxFromCoord:
+    """test for method from_coords(coords, coord_format, img_size) -> BoundingBox"""
 
     def test_instantiation(self, bbox, test_bboxes, test_img_size):
-        """test instantiation of BoundingBox using function bbox_from_coord()"""
+        """test instantiation of BoundingBox using method bbox_from_coord()"""
         for bbox_format in test_bboxes.keys():
-            assert bbox == bbox_from_coord(test_bboxes[bbox_format], bbox_format, test_img_size)
+            assert bbox == BoundingBox.from_coords(test_bboxes[bbox_format], bbox_format, test_img_size)
 
 
     @pytest.mark.parametrize("coords, coord_format, img_size", [([56], 'xywh', (1000, 1000)),
-                                                          ([56, 5], 'xywh', (1000, 1000)),
-                                                          ([56, 5, 452], 'xywh', (1000, 1000)),
-                                                          ([56, 5, 452, 4], 'invalid_format', (1000, 1000)),
-                                                          ([56, 5, 452, 4], 'xyxy', None),
-                                                          ([56, 5, 452, 4], 'xywh', (1000, 1000))])
+                                                                ([56, 5], 'xywh', (1000, 1000)),
+                                                                ([56, 5, 452], 'xywh', (1000, 1000)),
+                                                                ([56, 5, 452, 4], 'invalid_format', (1000, 1000)),
+                                                                ([56, 5, 452, 4], 'xyxy', None),
+                                                                ([56, 5, 452, 4], 'xywh', (1000, 1000))])
     def test_invalid(self, coords, coord_format, img_size):
         """test if bbox_from_coord() call raises a ValueError with invalid entries"""
         with pytest.raises(ValueError):
-            bbox_from_coord(coords, coord_format, img_size)
+            BoundingBox.from_coords(coords, coord_format, img_size)
 
+
+class TestCoordFromBbox:
+    """test for method to_coords(self, coord_format, img_size) -> Tuple[float, float, float, float]"""
+
+    def test_retrival(self, bbox, test_bboxes, test_img_size):
+        """test retrival of coordinates from BoundingBox using method to_coords()"""
+        for bbox_format in test_bboxes.keys():
+            if 'n' in bbox_format:
+                assert isclose_float_sequences(test_bboxes[bbox_format], bbox.to_coords(bbox_format, test_img_size))
+            else:  # sinon problème avec les parties entières des coordonnées non normalisées
+                assert tuple(round(el) for el in test_bboxes[bbox_format]) == bbox.to_coords(bbox_format, test_img_size)
+
+
+    @pytest.mark.parametrize("coord_format, img_size", [('invalid_format', (1000, 1000)),
+                                                        ('xyxy', None)])
+    def test_invalid(self, bbox, coord_format, img_size):
+        """test if bbox_from_coord() call raises a ValueError with invalid entries"""
+        with pytest.raises(ValueError):
+            bbox.to_coords(coord_format, img_size)
 
 # ======================================================================================================================
 # TESTS Detection
@@ -152,9 +175,9 @@ class TestClassDetection:
         with pytest.raises(ValueError):
             Detection(bbox, is_manual=False)
 
-    def test_has_content(self, bbox):
+    def test_isprocessed(self, bbox):
         """test if Detection has content"""
-        assert not Detection(bbox).has_content()
+        assert not Detection(bbox).isprocessed()
         # TODO : add with a content
 
     def test_to_dict(self, detection, dict_detection):

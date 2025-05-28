@@ -1,13 +1,36 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from collections.abc import Sequence
-from typing import List, Dict, Tuple, Optional, Literal, Any
+from typing import Iterator, Tuple, Optional, Dict
+from enum import StrEnum
 import math
 from t2ia_collection.content import *
+import importlib.util  # pour détecter si d'autres librairies sont installées
 
 # ======================================================================================================================
 # BOUNDING BOXES
 # ======================================================================================================================
+
+# Définir les différents formats de coordonnées
+class CoordFormat(StrEnum):
+    """Enumération des formats de coordonnées"""
+    XYWH = 'xywh'
+    XYWHN = 'xywhn'
+    XYXY = 'xyxy'
+    XYXYN = 'xyxyn'
+    XXYY = 'xxyy'
+    XXYYN = 'xxyyn'
+
+    def __repr__(self) -> str:
+        return str(self.value)
+
+    def __contains__(self, item) -> bool:
+        return item in self.value
+
+    def is_normalized(self) -> bool:
+        """Retourne s'il s'agit de coordonnées normalisées"""
+        return self.value[-1] == 'n'
+
 
 @dataclass
 class BoundingBox:
@@ -18,56 +41,72 @@ class BoundingBox:
     w: float
     h: float
 
-    def __eq__(self, other: 'BoundingBox'):
-        res = True
-        for a, b in zip(self, other):
-            res &= math.isclose(a, b, rel_tol=1e-06)
-        return res
+    def __eq__(self, other: "BoundingBox") -> bool:
+        return self.isclose(other)
 
-    def __lt__(self, other):
+    def __lt__(self, other: "BoundingBox") -> bool:
         # Norme euclidienne au point central de la bbox : sqrt(x^2 + y^2)
         norm_self = math.sqrt(self.x**2 + self.y**2)
         norm_other = math.sqrt(other.x**2 + other.y**2)
         return norm_self < norm_other
 
-    def __iter__(self):
+    def __le__(self, other: "BoundingBox") -> bool:
+        # Norme euclidienne au point central de la bbox : sqrt(x^2 + y^2)
+        norm_self = math.sqrt(self.x**2 + self.y**2)
+        norm_other = math.sqrt(other.x**2 + other.y**2)
+        return norm_self <= norm_other
+
+    def __iter__(self: "BoundingBox") -> Iterator[float]:
         return iter(self.xywhn())
 
-    def rotate(self, theta: float, radians=False) -> 'BoundingBox':
+    # Les tests :
+    # -----------
+    def isclose(self, other: "BoundingBox", rtol=1e-05, atol=1e-08) -> bool:
+        """Comparaison de BoundingBox avec une certaine tolérance (similaire à celle de numpy)"""
+        res = True
+        for a, b in zip(self, other):
+            res &= math.isclose(a, b, rel_tol=rtol, abs_tol=atol)
+        return res
+
+    def isvalid(self, atol=1e-9) -> bool:
+        """Vérifie si la bounding box possède des coordonnées valides (bbox inclue dans l'image) avec une certaine tolérance"""
+        x, y, w, h = self.xywhn()
+        return (w / 2 - atol <= x <= 1 - w / 2 + atol) and (h / 2 - atol <= y <= 1 - h / 2 + atol)
+
+    # Les rotations :
+    # ---------------
+    def rotate(self, theta: Orientation | int | float | str | None = Orientation.NINETY) -> "BoundingBox":
         """
-        Rotation d'un point de coordonnées xy d'un angle theta, multiple de 90° (ou π/2 radians), par rapport au centre de rotation xy_center.
+        Rotation d'un point de coordonnées xy d'un angle theta en degrés, multiple de 90°, par rapport au centre de
+        rotation xy_center.
         """
         # Centre de rotation
         cx, cy = 0.5, 0.5
-        # transformation de l'angle en radiant si besoin
-        if not radians:
-            if theta % 90 != 0:
-                raise ValueError(f"Theta must be an multiple of 90°, got {theta} = {theta // 90} x 90 + {theta % 90}.")
-            else:
-                theta = math.radians(theta)
-        else:
-            rad90 = math.pi/2
-            if theta % rad90 != 0:
-                raise ValueError(f"Theta must be an multiple of π/2, got {theta:.3f} = {theta // rad90:.0f} x π/2 + {theta % rad90:.3f}.")
+        # Test de la validité de l'angle
+        if not isinstance(theta, Orientation):
+            theta = Orientation.from_input(theta)
+        # Angle négatif en radians pour matcher PIL.Image.rotate()
+        theta_radians = - theta.value * math.pi / 180
         # Angle négatif pour matcher PIL.Image.rotate() :
-        theta *= -1
         # Translation vers l'origine
         x_trans = self.x - cx
         y_trans = self.y - cy
         # Rotation
-        cos_theta = math.cos(theta)
-        sin_theta = math.sin(theta)
+        cos_theta = math.cos(theta_radians)
+        sin_theta = math.sin(theta_radians) # Angle négatif pour matcher PIL.Image.rotate()
         x_rot = x_trans * cos_theta - y_trans * sin_theta
         y_rot = x_trans * sin_theta + y_trans * cos_theta
         w_rot = self.w * cos_theta ** 2 + self.h * sin_theta ** 2
         h_rot = self.w * sin_theta ** 2 + self.h * cos_theta ** 2
         return BoundingBox(x_rot + cx, y_rot + cy, w_rot, h_rot)
 
+    # Les différentes coordonnées :
+    # -----------------------------
     def xywhn(self) -> Tuple[float, float, float, float]:
         """Coordonnées normalisées avec point central, largeur et hauteur de la bbox"""
         return self.x, self.y, self.w, self.h
 
-    def xywh(self, img_size: Tuple[float, float]) -> Tuple[float, float, float, float]:
+    def xywh(self, img_size: Tuple[int, int]) -> Tuple[float, float, float, float]:
         """Coordonnées avec point central, largeur et hauteur de la bbox en fonction de la taille de l'image"""
         x, y, w, h = self.xywhn()
         img_w, img_h = img_size
@@ -102,11 +141,8 @@ class BoundingBox:
         x_min, y_min, x_max, y_max = self.xyxy(img_size)
         return x_min, x_max, y_min, y_max
 
-    def is_valid(self, tol=1e-9):
-        """Vérifie si la bounding box possède des coordonnées valides (bbox inclue dans l'image) avec une certaine tolérance"""
-        x, y, w, h = self.xywhn()
-        return (w/2 - tol <= x <= 1 - w/2 + tol) and (h/2 - tol <= y <= 1 - h/2 + tol)
-
+    # pour exporter/importer :
+    # ------------------------
     def to_dict(self) -> Dict[str, float]:
         """Renvoie un dictionnaire avec les coordonnées xywhn"""
         return {coord: value for coord, value in zip('xywhn', self.xywhn())}
@@ -116,53 +152,96 @@ class BoundingBox:
         """Permet d'instancier une BoundingBox à partir d'un dictionnaire"""
         return BoundingBox(**data)
 
+    @staticmethod
+    def from_coords(
+            coords: Sequence[float],
+            coord_format: CoordFormat | str = CoordFormat.XYWHN,
+            img_size: Optional[Tuple[float, float]] = None) -> "BoundingBox":
+        """Renvoie un objet BoundingBox en fonction des coordonnées données en entrée, de leur format, ainsi que des
+        dimensions de l'image (largeur, hauteur) si les coordonnées ne sont pas normalisées."""
+        # test de la longueur des coordonnées (forcément égal à 4)
+        if len(coords) != 4:
+            raise ValueError(f"coords must have 4 coordinates, got {len(coords)}")
+        # test format de coordonnées
+        if isinstance(coord_format, str):
+            try:
+                coord_format = CoordFormat(coord_format)
+            except ValueError:
+                raise ValueError(f"coord_format must be one of : {[e.value for e in CoordFormat]}")
 
-def bbox_from_coord(
-        coords: Sequence[float],
-        coord_format: Literal['xywh', 'xywhn', 'xyxy', 'xyxyn', 'xxyy', 'xxyyn'] = 'xywhn',  # TODO : à faire en Enum
-        img_size: Optional[Tuple[float, float]] = None) -> BoundingBox:
-    """Renvoie un objet BoundingBox en fonction des coordonnées données en entrée, de leur format, ainsi que des dimensions de l'image (largeur, hauteur) si les coordonnées ne sont pas normalisées."""
-    # test de la longueur des coordonnées (forcément égal à 4)
-    if len(coords) != 4:
-        raise ValueError(f"'coords' argument must have 4 coordinates, got {len(coords)}")
-    # test format de coordonnées
-    list_formats = ['xywh', 'xywhn', 'xyxy', 'xyxyn', 'xxyy', 'xxyyn']
-    if coord_format not in list_formats:
-        raise ValueError(f"'format' argument must be one of {list_formats}, got '{coord_format}'")
-
-    # coordonnées normalisées ou non
-    if coord_format[-1] == 'n':
-        img_w, img_h = (1, 1)  # pas de modification
-        coord_format = coord_format[:-1]
-    else:
-        if img_size is not None:
-            img_w, img_h = img_size
+        # coordonnées normalisées ou non
+        if coord_format.is_normalized():
+            img_w, img_h = (1, 1)  # pas de modification
         else:
-            raise ValueError(f"If the coordinates are not normalized ('{format}'), you must specify an 'img_size'.")
+            if img_size is not None:
+                img_w, img_h = img_size
+            else:
+                raise ValueError(f"If the coordinates are not normalized (one of : {[
+                    e.value for e in CoordFormat if 'n' in e
+                ]}), you must specify an img_size.")
 
-    # format de coordonnées
-    if coord_format == 'xywh':
-        x, y, w, h = coords
-    else:
-        if coord_format == 'xyxy':
-            x_min, y_min, x_max, y_max = coords
+        # format de coordonnées
+        if 'xywh' in coord_format:
+            x, y, w, h = coords
         else:
-            x_min, x_max, y_min, y_max = coords
-        # calcul des coordonnées
-        w = x_max - x_min
-        h = y_max - y_min
-        x = x_min + w/2
-        y = y_min + h/2
+            if 'xyxy' in coord_format:
+                x_min, y_min, x_max, y_max = coords
+            else:
+                x_min, x_max, y_min, y_max = coords
+            # calcul des coordonnées
+            w = x_max - x_min
+            h = y_max - y_min
+            x = x_min + w/2
+            y = y_min + h/2
 
-    # normalisation
-    x, w = [el/img_w for el in [x, w]]
-    y, h = [el/img_h for el in [y, h]]
+        # normalisation
+        x, w = [el/img_w for el in [x, w]]
+        y, h = [el/img_h for el in [y, h]]
 
-    bbox = BoundingBox(x, y, w, h)
-    if not bbox.is_valid():
-        raise ValueError(f"The coordinates '{coords}' are invalid, the bbox is outside the image.")
+        bbox = BoundingBox(x, y, w, h)
+        if not bbox.isvalid():
+            raise ValueError(f"The coordinates '{coords}' are invalid, the bbox is outside the image.")
 
-    return bbox
+        return bbox
+
+    def to_coords(
+            self,
+            coord_format: CoordFormat | str = CoordFormat.XYWHN,
+            img_size: Optional[Tuple[int, int]] = None) -> Tuple[float, float, float, float]:
+        """Renvoie un tuple de coordonnées en fonction du format de coordonnées donné en entrée, ainsi que des
+        dimensions de l'image (largeur, hauteur) si les coordonnées ne sont pas normalisées."""
+        # test format de coordonnées
+        if isinstance(coord_format, str):
+            try:
+                coord_format = CoordFormat(coord_format)
+            except ValueError:
+                raise ValueError(f"coord_format must be one of : {[e.value for e in CoordFormat]}")
+
+        # coordonnées normalisées ou non
+        if coord_format.is_normalized():
+            if 'xywh' in coord_format:
+                res = self.xywhn()
+            else:
+                if 'xyxy' in coord_format:
+                    res = self.xyxyn()
+                else:
+                    res = self.xxyyn()
+        else:
+            if img_size is not None:
+                # format de coordonnées
+                if 'xywh' in coord_format:
+                    res = self.xywh(img_size)
+                else:
+                    if 'xyxy' in coord_format:
+                        res = self.xyxy(img_size)
+                    else:
+                        res = self.xxyy(img_size)
+            else:
+                raise ValueError(f"If the coordinates are not normalized (one of : {[
+                    e.value for e in CoordFormat if 'n' in e
+                ]}), you must specify an img_size.")
+
+        return res
 
 
 # ======================================================================================================================
@@ -182,22 +261,26 @@ class Detection:
         if (self.is_manual is False) and self.confidence is None:
             raise ValueError("Confidence must be set if the detection is not manually set.")
 
-    def has_content(self) -> bool:
+    # Les tests :
+    # -----------
+    def isprocessed(self) -> bool:
         """Vérifie si un contenu a été extrait à partir de la détection"""
         return self.content is not None
 
-    def to_dict(self) -> Dict:
+    # pour exporter/importer :
+    # ------------------------
+    def to_dict(self) -> dict:
         """Renvoie un dictionnaire avec le contenu de la classe"""
         res = {
             'bbox': self.bbox.to_dict(),
             'is_manual': self.is_manual,
             'confidence': self.confidence,
-            'content': self.content.to_dict() if self.has_content() else None
+            'content': self.content.to_dict() if self.isprocessed() else None
         }
         return res
 
     @staticmethod
-    def from_dict(data: Dict):
+    def from_dict(data: dict) -> "Detection":
         """Permet d'instancier la classe à partir d'un dictionnaire"""
         return Detection(bbox=BoundingBox.from_dict(data['bbox']),
                          is_manual=data['is_manual'],
