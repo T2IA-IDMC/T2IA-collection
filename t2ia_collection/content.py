@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import List, Iterator
+from dataclasses import dataclass, field
+from collections.abc import Sequence
+from typing import List, Iterator, Set, Callable, LiteralString, SupportsIndex
 from enum import StrEnum, IntEnum
+from copy import deepcopy
 import math
 import importlib.util  # pour détecter si d'autres librairies sont installées
 
@@ -37,10 +39,18 @@ class Content(ABC):
     # ------------------------
     def to_dict(self) -> dict:
         """Renvoie un dictionnaire avec le contenu de la classe"""
+        res = {}
+        for key, value in self.__dict__.items():
+            if key[0] != "_":  # pour ne pas ajouter les attributs privés et protégés
+                res[key] = value
+        return res
+
+    def _to_full_dict(self) -> dict:
+        """Renvoie un dictionnaire avec la totalité du contenu de la classe, sauf les attributs privés ou protégés"""
         return self.__dict__
 
     @classmethod
-    def from_dict(cls, data:dict) -> "Content":
+    def from_dict(cls, data: dict) -> "Content":
         """Permet d'instancier la classe à partir d'un dictionnaire"""
         return cls(**data)
 
@@ -57,6 +67,20 @@ class Content(ABC):
         if importlib.util.find_spec("pandas") is not None:
             return cls(**data.to_dict())
         raise NotImplementedError("pandas library is not installed, use 'pip install pandas'")
+
+    # Les traitements :
+    # -----------------
+    def process_content(self, confidence: float = 0, inplace: bool = False):
+        """Méthode pour les différents traitements des contenus renvoie soit une copie, soit modifie en place"""
+        if inplace:
+            res = self
+        else:
+            res = deepcopy(self)
+        # modifications
+        res.is_manual = False
+        res.confidence = confidence
+        return None if inplace else res
+
 
 
 # ======================================================================================================================
@@ -98,13 +122,19 @@ class Orientation(IntEnum):
 class Text(Content):
     """Sous-classe de contenu pour les textes"""
     ocr_result: str = ""
-    keywords: List[str] | None = None
+    _word_list: List[str] | None = field(default=None, repr=False)  # les mots ne seront pas affichés lors de la repr
+    _lemmes: List[str] | None = field(default=None, repr=False)  # les lemmes ne seront pas affichés lors de la repr
+    keywords: Set[str] | List[str] | None = None
     # angle par lequel l'image doit être rotatée pour que le texte soit dans le bon sens :
     orientation: Orientation | int | float | str | None = 0
 
     def __post_init__(self):
         super().__post_init__()  # vérifications de la classe Content
-        self.keywords = self.keywords or []
+        self.keywords = self.keywords or set()
+        if isinstance(self.keywords, list):
+            self.keywords = set(self.keywords)
+        if not isinstance(self.keywords, set):
+            raise TypeError("keywords must be a set or None")
         # Test de la validité de l'angle
         if not isinstance(self.orientation, Orientation):
             self.orientation = Orientation.from_input(self.orientation)
@@ -115,25 +145,30 @@ class Text(Content):
 
     def __iter__(self) -> Iterator[str]:
         """iteration sur les mots-clés"""
-        return iter(self.keywords)  # garder ça ou faire key: value (pour dict() par exemple)
+        return iter(sorted(self.keywords))  # garder ça ou faire key: value (pour dict() par exemple)
 
-    def set_keywords(self):
-        # TODO : implémenter la recherche de mots-clés dans les résultats d'OCR
-        pass
-
-    def get_keywords(self) -> List[str]:
+    def get_keywords(self) -> Set[str]:
         return self.keywords
 
-    def word_list(self) -> List[str]:
-        # TODO : voir comment se débarrasser des caractères spéciaux
-        return self.ocr_result.split()
+    # pour exporter/importer :
+    # ------------------------
+    def to_dict(self) -> dict:
+        res = super().to_dict()
+        res['keywords'] = sorted(self.keywords)  # les sets doivent être sous forme de listes pour les json
+        return res
+
+    def _to_full_dict(self) -> dict:
+        res = super()._to_full_dict()
+        res['keywords'] = sorted(self.keywords)  # les sets doivent être sous forme de listes pour les json
+        return res
 
     # Les rotations :
+    # ---------------
     def rotate(self, theta: Orientation | int | float | str | None = 90) -> "Text":
         """
         Rotation de l'orientation du texte par rapport à une rotation de l'image
         """
-        dict_text = self.to_dict()
+        dict_text = self._to_full_dict()
         # Test de la validité de l'angle
         if not isinstance(theta, Orientation):
             theta = Orientation.from_input(theta)
@@ -142,6 +177,66 @@ class Text(Content):
         dict_text["orientation"] = self.orientation.value - theta.value
 
         return self.__class__.from_dict(dict_text)
+
+    # Les traitements :
+    # -----------------
+    def process_content(self, ocr_result: str = "", orientation: Orientation | int | float | str | None =  None,
+                        confidence: float = 0, inplace: bool = False):
+        """Méthode pour les différents traitements des textes renvoie soit une copie, soit modifie en place"""
+        res = super().process_content(confidence, inplace=inplace)
+        if res is None:  # si la modification se fait en place
+            res = self
+
+        # modifications
+        res.ocr_result = ocr_result
+        res.orientation = orientation
+        return None if inplace else res
+
+    def word_list(self, preprocessing: Callable | None = None, inplace: bool = False,
+                  sep: LiteralString | None = None, maxsplit: SupportsIndex =-1):
+        """Découpe les résultats d'ocr en liste de mots selon un séparateur, après préprocessing si une fonction est
+        spécifiée. Renvoie soit une copie, soit modifie en place."""
+        if inplace:
+            res = self  # cet objet si en place
+        else:
+            res = deepcopy(self)  # copie sinon
+        # préprocessing des résultats d'OCR
+        if preprocessing is None:
+            ocr_result = res.ocr_result
+        else:
+            ocr_result = preprocessing(res.ocr_result)  # TODO : voir comment se débarrasser des caractères spéciaux
+        # découpage
+        res._word_list = ocr_result.split(sep=sep, maxsplit=maxsplit)
+
+        return  None if inplace else res
+
+    def lemmatize(self, lemmatizer: Callable | None = None, preprocessing: Callable | None = None,
+                  inplace: bool = False, **kwargs):
+        """Méthode pour lemmatizer une liste de mots, utilise la liste de mots dans _word_list si déjà générée, sinon
+        appelle la méthode word_list()"""
+        if inplace:
+            res = self  # cet objet si en place
+        else:
+            res = deepcopy(self)  # copie sinon
+
+        if self._word_list is None:  # si pas de liste de mots
+            res.word_list(preprocessing, inplace=True, **kwargs)  # on modifie l'objet en place
+        # TODO : scabreux, demander avant au user de générer la liste de mots ?
+        # TODO : et retourner les listes de mots / lemmes si en place ?
+
+        # lemmatisation
+        if lemmatizer is None:
+            res._lemmes = [word.lower() for word in self._word_list]
+        else:
+            res._lemmes = lemmatizer(self._word_list)  # TODO : implémenter la lemmatisation
+
+        return  None if inplace else res
+
+    def set_keywords(self, ref_keywords: Set[str] | None = None, inplace: bool = False) -> Set[str]:
+        """Méthode pour obtenir l'ensemble des mots clés à partir mots, utilise la liste de mots dans _word_list si déjà générée, sinon
+        appelle la méthode word_list()"""
+        # TODO : implémenter la recherche de mots-clés dans les résultats d'OCR
+        pass
 
 
 
@@ -153,7 +248,10 @@ class Text(Content):
 class PrintedText(Text):
     """Subclass of Text for printed text"""
     is_editor: bool = False
-    # TODO : autres attributs et méthodes ?
+
+    def research_editor(self):
+        # TODO : autres attributs et méthodes ?
+        pass
 
 
 @dataclass
@@ -276,7 +374,16 @@ class DateStamp(Postmark):
 
     def to_dict(self) -> dict:
         """Renvoie un dictionnaire avec le contenu de la classe"""
-        res = self.__dict__
+        res = super().to_dict()
+        del res['confidence']  # pas utile car on n'obtient pas de confiance en sortie de GPT4o
+        res['mark_type'] = self.mark_type.value  # pour accéder à la valeur
+        res['quality'] = self.quality.value  # pour accéder à la valeur
+        res['date'] = str(self.date)
+        return res
+
+    def _to_full_dict(self) -> dict:
+        """Renvoie un dictionnaire avec la totalité du contenu de la classe"""
+        res = super()._to_full_dict()
         del res['confidence']  # pas utile car on n'obtient pas de confiance en sortie de GPT4o
         res['mark_type'] = self.mark_type.value  # pour accéder à la valeur
         res['quality'] = self.quality.value  # pour accéder à la valeur

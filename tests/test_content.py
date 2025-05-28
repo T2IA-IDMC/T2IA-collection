@@ -14,7 +14,7 @@ def dict_manual_text():
     return {'is_manual': True,
             'confidence': None,
             'ocr_result': 'test du contenu manuel',
-            'keywords': ['test', 'manuel'],
+            'keywords': ['manuel', 'test'],
             'orientation': 0}
 
 @pytest.fixture
@@ -27,7 +27,7 @@ def dict_pred_text():
 
 @pytest.fixture
 def manual_text():
-    return Text(is_manual=True, ocr_result='test du contenu manuel', orientation=0, keywords=['test', 'manuel'])
+    return Text(is_manual=True, ocr_result='test du contenu manuel', orientation=0, keywords=['manuel', 'test'])
 
 @pytest.fixture
 def pred_text():
@@ -107,17 +107,17 @@ class TestClassText:
         """test instantiation of Text Class"""
         assert Text()
         assert Text(confidence=0.8) == Text()
-        assert Text(is_manual=True, ocr_result='test du contenu manuel', orientation=90, keywords=['test', 'manuel'])
+        assert Text(is_manual=True, ocr_result='test du contenu manuel', orientation=90, keywords=['manuel', 'test'])
         assert Text(is_manual=True,
                     confidence=0.54,
                     ocr_result='test du contenu manuel',
                     orientation=0,
-                    keywords=['test', 'manuel']) == manual_text
+                    keywords=['manuel', 'test']) == manual_text
         assert Text(is_manual=True,
                     confidence=0.54,
                     ocr_result='test du contenu manuel',
                     orientation=Orientation.ZERO,
-                    keywords=['test', 'manuel']) == manual_text
+                    keywords=['manuel', 'test']) == manual_text
         assert Text(False, 0.8, ocr_result='test du contenu prédit', orientation=90)
         # test normalisation de l'angle
         assert Text() == Text(orientation=None)
@@ -164,7 +164,7 @@ class TestClassText:
         res_manual = []
         for kw in manual_text:
             res_manual.append(kw)
-        assert res_manual == ['test', 'manuel']
+        assert res_manual == ['manuel', 'test']
 
         res_pred = []
         for kw in pred_text:
@@ -176,13 +176,8 @@ class TestClassText:
         pass
 
     def test_get_keywords(self, pred_text, manual_text):
-        assert manual_text.get_keywords() == ['test', 'manuel']
-        assert pred_text.get_keywords() == []
-
-    def test_word_list(self, pred_text, manual_text):
-        # TODO : voir comment se débarrasser des caractères spéciaux
-        assert pred_text.word_list() == ['test', 'du', 'contenu', 'prédit']
-        assert manual_text.word_list() == ['test', 'du', 'contenu', 'manuel']
+        assert manual_text.get_keywords() == {'test', 'manuel'}
+        assert pred_text.get_keywords() == set()
 
     def test_to_dict(self, pred_text, manual_text, dict_pred_text, dict_manual_text):
         assert manual_text.to_dict() == dict_manual_text # test manuel
@@ -204,6 +199,14 @@ class TestClassText:
                                                                      (90, "-180", 270)])
     def test_rotate(self, init_orient, rotation, final_orient):
         assert Text(orientation=init_orient).rotate(rotation) == Text(orientation=final_orient)
+
+
+    def test_word_list(self, pred_text, manual_text):
+        # TODO : voir comment se débarrasser des caractères spéciaux
+        assert pred_text.word_list()._word_list == ['test', 'du', 'contenu', 'prédit']
+        assert pred_text._word_list is None  # pas de modification en place ici
+        assert manual_text.word_list()._word_list == ['test', 'du', 'contenu', 'manuel']
+        assert manual_text._word_list is None  # pas de modification en place ici
 
 
 
