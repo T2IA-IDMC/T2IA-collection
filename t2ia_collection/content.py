@@ -74,6 +74,31 @@ class Content(ABC):
             return cls(**data.to_dict())
         raise NotImplementedError("pandas library is not installed, use 'pip install pandas'")
 
+    # créer n'importe quelle sous-classe
+    # ----------------------------------
+    @classmethod
+    def create_instance(cls, class_name: str | None = None, class_dict: dict | None = None):
+        """Permet de créer n'importe quelle sous-classe à partir de son nom (et d'un dict optionnel)"""
+        # Récupérer toutes les sous-classes et la classe courante
+        def get_all_subclasses(cls):
+            """permet de récupérer toutes les sous-classes de la classe courante"""
+            subclasses = {cls}  # Inclure la classe courante
+            for subclass in cls.__subclasses__():
+                subclasses.update(get_all_subclasses(subclass))
+            return subclasses
+
+        dict_subcls = {subcls.__name__: subcls for subcls in get_all_subclasses(cls)}
+
+        # Vérifier si le nom de classe existe
+        if class_name is None:
+            class_name = cls.__name__  # si pas spécifié, on prend le nom de la classe courante
+        elif class_name not in dict_subcls.keys():
+            raise ValueError(f"Classe {class_name} non trouvée")
+
+        # Instancier la classe avec les attributs du dictionnaire
+        res = dict_subcls[class_name]() if class_dict is None else dict_subcls[class_name].from_dict(class_dict)
+        return res
+
     # Les traitements :
     # -----------------
     def process_content(self, confidence: float = 0, inplace: bool = False, *args, **kwargs):
@@ -269,10 +294,13 @@ class Text(Content):
 class PrintedText(Text):
     """Subclass of Text for printed text"""
     is_editor: bool = False
+    # TODO : autres attributs et méthodes ?
 
-    def research_editor(self):
-        # TODO : autres attributs et méthodes ?
-        pass
+    def set_editor(self, is_editor: bool = False, inplace: bool = False):
+        """Permet de spécifier si un text correspond à l'éditeur ou non"""
+        res = self if inplace else self.copy()
+        res.is_editor = is_editor
+        return None if inplace else res
 
 
 @dataclass
@@ -444,7 +472,8 @@ class OtherMark(Postmark):
     is_editor: bool = False
     # TODO : autres attributs et méthodes ?
 
-
-# ======================================================================================================================
-# ANY CONTENT from dict {Content.get_cls_name(): Content.to_dict()}
-# ======================================================================================================================
+    def set_editor(self, is_editor: bool = False, inplace: bool = False):
+        """Permet de spécifier si un text correspond à l'éditeur ou non"""
+        res = self if inplace else self.copy()
+        res.is_editor = is_editor
+        return None if inplace else res

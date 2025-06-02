@@ -542,3 +542,78 @@ class TestClassOtherMark:
     def test_get_cls_name(self):
         """test get_cls_name() method"""
         assert OtherMark().get_cls_name() == 'OtherMark'
+
+
+
+# ======================================================================================================================
+# CREATE ANY CONTENT SUBCLASS
+# ======================================================================================================================
+
+class TestContentCreateInstance:
+    """test de la méthode de classe pour créer une instance à partir de n'importe quel nom de classe de Content"""
+
+    def test_from_content(self, pred_text, dict_pred_text, datestamp_json, datestamp_bad_json):
+        assert Content.create_instance() == Content()
+        assert Content.create_instance('Content') == Content()
+        assert Content.create_instance('Text', dict_pred_text) == pred_text
+        assert Content.create_instance('PrintedText') == PrintedText()
+        assert Content.create_instance('DateStamp', datestamp_json) == DateStamp.from_dict(datestamp_json)
+        # instance avec le mauvais type de dict
+        with pytest.raises(TypeError):
+            Content.create_instance('Text', datestamp_json)
+        # instance avec valeur erronée dans le dict
+        with pytest.raises(ValueError):
+            Content.create_instance('DateStamp', datestamp_bad_json)
+        # classe qui n'existe pas
+        with pytest.raises(ValueError):
+            Text.create_instance('Something')
+
+    def test_from_text(self, pred_text, dict_pred_text, datestamp_json):
+        assert Text.create_instance() == Text()
+        assert Text.create_instance('Text', dict_pred_text) == pred_text
+        assert Text.create_instance('PrintedText') == PrintedText()
+        assert Text.create_instance('PrintedText', dict_pred_text) == PrintedText.from_dict(dict_pred_text)
+        # instance avec le mauvais type de dict
+        with pytest.raises(TypeError):
+            Text.create_instance('Text', datestamp_json)
+        with pytest.raises(ValueError):
+            Text.create_instance('DateStamp', datestamp_json)
+        with pytest.raises(ValueError):
+            Text.create_instance('Content')
+
+    def test_from_printedtext(self, pred_text, dict_pred_text, datestamp_json):
+        assert PrintedText.create_instance() == PrintedText()
+        assert PrintedText.create_instance('PrintedText') == PrintedText()
+        assert PrintedText.create_instance('PrintedText', dict_pred_text) == PrintedText.from_dict(dict_pred_text)
+        # instance avec le mauvais type de dict
+        with pytest.raises(TypeError):
+            PrintedText.create_instance('PrintedText', datestamp_json)
+        with pytest.raises(ValueError):
+            PrintedText.create_instance('DateStamp', datestamp_json)
+        with pytest.raises(ValueError):
+            PrintedText.create_instance('Text')
+
+    def test_from_postmarks(self, datestamp_json, datestamp_bad_json):
+        assert Postmark.create_instance() == Postmark()
+        assert Postmark.create_instance('Postmark') == Postmark()
+        assert Postmark.create_instance('DateStamp') == DateStamp()
+        assert Postmark.create_instance('DateStamp', datestamp_json) == DateStamp.from_dict(datestamp_json)
+        # instance avec le mauvais type de dict
+        with pytest.raises(TypeError):
+            Postmark.create_instance('Postmark', datestamp_json)
+        with pytest.raises(ValueError):
+            Postmark.create_instance('DateStamp', datestamp_bad_json)
+        with pytest.raises(ValueError):
+            Postmark.create_instance('Content')
+
+    def test_from_datestamp(self, dict_pred_text, datestamp_json, datestamp_bad_json):
+        assert DateStamp.create_instance() == DateStamp()
+        assert DateStamp.create_instance('DateStamp') == DateStamp()
+        assert DateStamp.create_instance('DateStamp', datestamp_json) == DateStamp.from_dict(datestamp_json)
+        # instance avec le mauvais type de dict
+        with pytest.raises(TypeError):
+            DateStamp.create_instance('DateStamp', dict_pred_text)
+        with pytest.raises(ValueError):
+            DateStamp.create_instance('DateStamp', datestamp_bad_json)
+        with pytest.raises(ValueError):
+            DateStamp.create_instance('Postmark')
