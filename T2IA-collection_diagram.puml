@@ -137,7 +137,7 @@ abstract class "Text" as Text {
   # _to_full_dict() -> dict
 }
 
-class "Postmark" as Postmark {
+abstract class "Postmark" as Postmark {
   + ...
 }
 
