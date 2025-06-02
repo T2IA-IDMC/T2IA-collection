@@ -33,6 +33,26 @@ def manual_text():
 def pred_text():
     return Text(False, 0.8, ocr_result='test du contenu prédit', orientation=90)
 
+@pytest.fixture
+def datestamp_json():
+    return {'postal_agency': 'EPERNAY',
+            'date': '1907-08-05T22:30',
+            'department': 'MARNE',
+            'starred_hour': False,
+            'collection': None,
+            'mark_type': 'post office',
+            'quality': 'good'}
+
+@pytest.fixture
+def datestamp_bad_json():
+    return {'postal_agency': 'EPERNAY',
+            'date': '1907-08-05T22:30',
+            'department': 'MARNE',
+            'starred_hour': False,
+            'collection': None,
+            'mark_type': 'datestamp',
+            'quality': 'good'}
+
 # ======================================================================================================================
 # CONTENT Abstract Class
 # ======================================================================================================================
@@ -95,6 +115,19 @@ class TestClassContent:
         else:
             with pytest.raises(NotImplementedError):
                 Content().to_series()
+
+    def test_process_content(self, pred_text):
+        test_p = Content()
+        assert not test_p.isprocessed()
+        assert test_p.process_content(confidence=0.64) == Content(False, 0.64)
+        assert not test_p.isprocessed()
+        # inplace
+        test_p2 = test_p.copy()
+        assert not test_p2.isprocessed()
+        test_p2.process_content(confidence=0.64, inplace=True)
+        assert not test_p.isprocessed()
+        assert test_p2.isprocessed()
+        assert test_p2 == Content(False, 0.64)
 
 
 # ======================================================================================================================
@@ -198,7 +231,14 @@ class TestClassText:
 
     def test_process_content(self, pred_text):
         test_p = Text()
+        assert not test_p.isprocessed()
         assert test_p.process_content(ocr_result='test du contenu prédit', confidence=0.8, orientation=90) == pred_text
+        assert not test_p.isprocessed()
+        # test inplace :
+        assert test_p != pred_text
+        test_p.process_content(ocr_result='test du contenu prédit', confidence=0.8, orientation=90, inplace=True)
+        assert test_p.isprocessed()
+        assert test_p == pred_text
 
     def test_word_list(self, pred_text, manual_text):
         # TODO : voir comment se débarrasser des caractères spéciaux
@@ -206,47 +246,64 @@ class TestClassText:
         assert pred_text._word_list is None  # pas de modification en place ici
         assert manual_text.word_list()._word_list == ['test', 'du', 'contenu', 'manuel']
         assert manual_text._word_list is None  # pas de modification en place ici
-        assert Text(
+        # pour tests :
+        test_wl = Text(
             is_manual=True,
             ocr_result="ALLAND'HUY. - L’Eglise.",
             keywords=["église"],
             orientation=0,
-        ).word_list()._word_list == ['alland', 'huy', 'l', 'eglise']
-        assert Text(
-            is_manual=True,
-            ocr_result="ALLAND'HUY. - L’Eglise.",
-            keywords=["église"],
-            orientation=0,
-        ).word_list(preprocessing=lambda x: x.lower())._word_list == ['alland\'huy.', '-', 'l’eglise.']
+        )
+        assert test_wl.word_list()._word_list == ['alland', 'huy', 'l', 'eglise']
+        assert test_wl.word_list(preprocessing=lambda x: x.lower())._word_list == ['alland\'huy.', '-', 'l’eglise.']
+        # test inplace
+        test_wl2 = test_wl.copy()
+        assert test_wl == test_wl2
+        assert test_wl is not test_wl2  # car on a une copie
+        test_wl2.word_list(inplace=True)
+        assert test_wl2._word_list == ['alland', 'huy', 'l', 'eglise']
+        assert test_wl != test_wl2
+        assert test_wl._word_list is None
+
 
     def test_lemmatize(self):
-        assert Text(
+        test_lem = Text(
             is_manual=True,
             ocr_result="Wilmet, phot., Rethel. - Livoir, édit., Vouziers.",
             keywords=None,
             orientation=90,
-        ).word_list().lemmatize()._lemmas == ['wilmet', 'phot', 'rethel', 'livoir', 'édit', 'vouziers']
-        assert Text(
-            is_manual=True,
-            ocr_result="Wilmet, phot., Rethel. - Livoir, édit., Vouziers.",
-            keywords=None,
-            orientation=90,
-        ).lemmatize(preprocessing=lambda x: x)._lemmas == ['wilmet,', 'phot.,', 'rethel.', '-', 'livoir,', 'édit.,', 'vouziers.']
+        )
+        assert test_lem.word_list().lemmatize()._lemmas == ['wilmet', 'phot', 'rethel', 'livoir', 'édit', 'vouziers']
+        assert test_lem.lemmatize(preprocessing=lambda x: x)._lemmas == ['wilmet,', 'phot.,', 'rethel.', '-', 'livoir,', 'édit.,', 'vouziers.']
+        assert test_lem.lemmatize(warn=False)._lemmas == ['wilmet', 'phot', 'rethel', 'livoir', 'édit', 'vouziers']
+        # test inplace
+        test_lem2 = test_lem.copy()
+        assert test_lem == test_lem2
+        assert test_lem is not test_lem2  # car on a une copie
+        test_lem2.lemmatize(inplace=True, warn=False)
+        assert test_lem2._lemmas == ['wilmet', 'phot', 'rethel', 'livoir', 'édit', 'vouziers']
+        assert test_lem != test_lem2
+        assert test_lem._word_list is None
+        assert test_lem._lemmas is None
 
     def test_set_keywords(self):
-        assert Text(
+        test_kw = Text(
             is_manual=True,
             ocr_result="ALLAND'HUY. - L’Eglise.",
-            keywords=["église"],
             orientation=0,
-        ).word_list().lemmatize().set_keywords({'eglise', 'chateau'}).keywords == {'eglise'}
-        assert Text(
-            is_manual=True,
-            ocr_result="ALLAND'HUY. - L’Eglise.",
-            keywords=["église"],
-            orientation=0,
-        ).set_keywords({'eglise', 'chateau', 'l’eglise.'}, lemmatizer=lambda x: x, preprocessing=lambda x: x.lower()).keywords == {'l’eglise.'}
-
+        )
+        assert test_kw.word_list().lemmatize().set_keywords({'eglise', 'chateau'}).keywords == {'eglise'}
+        assert test_kw.set_keywords({'eglise', 'chateau', 'l’eglise.'}, lemmatizer=lambda x: x, preprocessing=lambda x: x.lower()).keywords == {'l’eglise.'}
+        assert test_kw.set_keywords({'eglise', 'chateau'}, warn=False).keywords == {'eglise'}
+        # test inplace
+        test_kw2 = test_kw.copy()
+        assert test_kw == test_kw2
+        assert test_kw is not test_kw2  # car on a une copie
+        test_kw2.set_keywords({'eglise', 'chateau'}, inplace=True, warn=False)
+        assert test_kw2.keywords == {'eglise'}
+        assert test_kw != test_kw2
+        assert test_kw._word_list is None
+        assert test_kw._lemmas is None
+        assert test_kw.keywords == set()
 
 
 
@@ -437,6 +494,28 @@ class TestClassDateStamp:
     def test_from_series(self):
         """test from_series() method"""
         assert DateStamp() == DateStamp.from_series(DateStamp().to_series())
+
+    def test_process_content(self, datestamp_json, datestamp_bad_json):
+        test_p = DateStamp()
+        assert not test_p.isprocessed()
+        assert DateStamp().process_content() == DateStamp(is_manual=False)
+        assert not test_p.isprocessed()
+        # inplace:
+        test_p2 = test_p.copy()
+        assert not test_p2.isprocessed()
+        assert test_p == test_p2
+        assert test_p is not test_p2
+        test_p2.process_content(datestamp_json, inplace=True)
+        assert test_p2.isprocessed()
+        assert not test_p.isprocessed()
+        assert test_p != test_p2
+        assert test_p2 == test_p.process_content(datestamp_json)
+        assert not test_p.isprocessed()
+        # test des vérifications
+        with pytest.raises(ValueError):
+            test_p.process_content(datestamp_bad_json)
+
+
 
 
 class TestClassPostageStamp:

@@ -31,6 +31,10 @@ class Content(ABC):
         """Retourne le nom de la classe"""
         return cls.__name__
 
+    def copy(self):
+        """retourne une copie de l'instance"""
+        return deepcopy(self)
+
     # Les tests :
     # -----------
     def isprocessed(self) -> bool:
@@ -72,15 +76,14 @@ class Content(ABC):
 
     # Les traitements :
     # -----------------
-    def process_content(self, confidence: float = 0, inplace: bool = False):
+    def process_content(self, confidence: float = 0, inplace: bool = False, *args, **kwargs):
         """Méthode pour les différents traitements des contenus renvoie soit une copie, soit modifie en place"""
-        if inplace:
-            res = self
-        else:
-            res = deepcopy(self)
+        res = self if inplace else self.copy()
         # modifications
         res.is_manual = False
         res.confidence = confidence
+
+        res.__post_init__()  # pour les vérifs
         return None if inplace else res
 
 
@@ -192,6 +195,8 @@ class Text(Content):
         # modifications
         res.ocr_result = ocr_result
         res.orientation = orientation
+
+        res.__post_init__()  # pour les vérifs
         return None if inplace else res
 
     def word_list(self, preprocessing: Callable | None = None, inplace: bool = False,
@@ -199,10 +204,7 @@ class Text(Content):
         """Découpe les résultats d'ocr en liste de mots selon un séparateur, après préprocessing si une fonction est
         spécifiée. Renvoie soit une copie, soit modifie en place. Par défaut, supprime la ponctuation et transforme en
         minuscules."""
-        if inplace:
-            res = self  # cet objet si en place
-        else:
-            res = deepcopy(self)  # copie sinon
+        res = self if inplace else self.copy()
         # préprocessing des résultats d'OCR
         if preprocessing is None:
             ocr_result = re.sub(r'[^\w\s]|_', ' ', res.ocr_result).lower()  # supprime la ponctuation
@@ -211,19 +213,17 @@ class Text(Content):
         # découpage
         res._word_list = ocr_result.split(sep=sep, maxsplit=maxsplit)
 
+        res.__post_init__()  # pour les vérifs
         return  None if inplace else res
 
     def lemmatize(self, lemmatizer: Callable | None = None, preprocessing: Callable | None = None,
-                  inplace: bool = False, **kwargs):
+                  inplace: bool = False, warn=True, **kwargs):
         """Méthode pour lemmatizer une liste de mots, utilise la liste de mots dans _word_list si déjà générée, sinon
         appelle la méthode word_list()"""
-        if inplace:
-            res = self  # cet objet si en place
-        else:
-            res = deepcopy(self)  # copie sinon
+        res = self if inplace else self.copy()
 
         if self._word_list is None:  # si pas de liste de mots
-            if preprocessing is None:
+            if preprocessing is None and warn:
                 warnings.warn("the 'word_list' method was not called on current instance before lemmatizing and no "
                               "preprocessing was set. If it's intentional please ignore this warning.")
             res.word_list(preprocessing, inplace=True, **kwargs)  # on modifie l'objet en place
@@ -236,28 +236,27 @@ class Text(Content):
         else:
             res._lemmas = lemmatizer(res._word_list)  # TODO : implémenter la lemmatisation
 
+        res.__post_init__()  # pour les vérifs
         return  None if inplace else res
 
     def set_keywords(self, ref_keywords: Set[str] | None = None, lemmatizer: Callable | None = None,
-                     preprocessing: Callable | None = None, inplace: bool = False, **kwargs):
+                     preprocessing: Callable | None = None, inplace: bool = False, warn=True, **kwargs):
         """Méthode pour obtenir l'ensemble des mots clés à partir mots, utilise la liste de mots dans _word_list si déjà générée, sinon
         appelle la méthode word_list()"""
-        if inplace:
-            res = self  # cet objet si en place
-        else:
-            res = deepcopy(self)  # copie sinon
+        res = self if inplace else self.copy()
 
         if self._lemmas is None:  # si pas de liste lemmes
-            if lemmatizer is None:
+            if lemmatizer is None and warn:
                 warnings.warn("the 'lemmatize' method was not called on current instance before keyword recuperation "
                               "and no lemmatizer was set. If it's intentional please ignore this warning.")
-            res.lemmatize(lemmatizer, preprocessing, inplace=True, **kwargs)  # on modifie l'objet en place
+            res.lemmatize(lemmatizer, preprocessing, inplace=True, warn=warn, **kwargs)  # on modifie l'objet en place
 
         # lemmatisation
         if ref_keywords is None:
             ref_keywords = set()
         res.keywords = ref_keywords & set(res._lemmas)
 
+        res.__post_init__()  # pour les vérifs
         return  None if inplace else res
 
 
@@ -411,6 +410,21 @@ class DateStamp(Postmark):
         res['quality'] = self.quality.value  # pour accéder à la valeur
         res['date'] = str(self.date)
         return res
+
+    # Les traitements :
+    # -----------------
+    def process_content(self, datestamp_dict: dict | None = None, inplace: bool = False, *args, **kwargs):
+        """Méthode pour le traitement du contenu des tampons d'oblitération"""
+        res = self if inplace else self.copy()
+        # modifications
+        res.is_manual = False
+        if datestamp_dict is not None:  # si un dictionnaire est passé
+            for key in datestamp_dict.keys():
+                res.__dict__[key] = datestamp_dict[key]
+
+        res.__post_init__()  # pour les vérifs
+        return None if inplace else res
+
 
 
 # Other Postmark Subclasses

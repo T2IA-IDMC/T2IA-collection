@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from collections.abc import Sequence
 from typing import Iterator, Tuple, Optional, Dict
 from enum import StrEnum
+from copy import deepcopy
 import math
 from t2ia_collection.content import *
 import importlib.util  # pour détecter si d'autres librairies sont installées
@@ -58,6 +59,10 @@ class BoundingBox:
 
     def __iter__(self: "BoundingBox") -> Iterator[float]:
         return iter(self.xywhn())
+
+    def copy(self):
+        """retourne une copie de l'instance"""
+        return deepcopy(self)
 
     # Les tests :
     # -----------
@@ -260,6 +265,10 @@ class Detection:
         """Vérification de la présence d'un score de confiance si contenu non annoté manuellement"""
         if (self.is_manual is False) and self.confidence is None:
             raise ValueError("Confidence must be set if the detection is not manually set.")
+
+    def copy(self):
+        """retourne une copie de l'instance"""
+        return deepcopy(self)
 
     # Les tests :
     # -----------
