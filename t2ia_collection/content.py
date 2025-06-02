@@ -4,7 +4,9 @@ from collections.abc import Sequence
 from typing import List, Iterator, Set, Callable, LiteralString, SupportsIndex
 from enum import StrEnum, IntEnum
 from copy import deepcopy
+import re
 import math
+import warnings
 import importlib.util  # pour détecter si d'autres librairies sont installées
 
 # ======================================================================================================================
@@ -123,7 +125,7 @@ class Text(Content):
     """Sous-classe de contenu pour les textes"""
     ocr_result: str = ""
     _word_list: List[str] | None = field(default=None, repr=False)  # les mots ne seront pas affichés lors de la repr
-    _lemmes: List[str] | None = field(default=None, repr=False)  # les lemmes ne seront pas affichés lors de la repr
+    _lemmas: List[str] | None = field(default=None, repr=False)  # les lemmes ne seront pas affichés lors de la repr
     keywords: Set[str] | List[str] | None = None
     # angle par lequel l'image doit être rotatée pour que le texte soit dans le bon sens :
     orientation: Orientation | int | float | str | None = 0
@@ -195,14 +197,15 @@ class Text(Content):
     def word_list(self, preprocessing: Callable | None = None, inplace: bool = False,
                   sep: LiteralString | None = None, maxsplit: SupportsIndex =-1):
         """Découpe les résultats d'ocr en liste de mots selon un séparateur, après préprocessing si une fonction est
-        spécifiée. Renvoie soit une copie, soit modifie en place."""
+        spécifiée. Renvoie soit une copie, soit modifie en place. Par défaut, supprime la ponctuation et transforme en
+        minuscules."""
         if inplace:
             res = self  # cet objet si en place
         else:
             res = deepcopy(self)  # copie sinon
         # préprocessing des résultats d'OCR
         if preprocessing is None:
-            ocr_result = res.ocr_result
+            ocr_result = re.sub(r'[^\w\s]|_', ' ', res.ocr_result).lower()  # supprime la ponctuation
         else:
             ocr_result = preprocessing(res.ocr_result)  # TODO : voir comment se débarrasser des caractères spéciaux
         # découpage
@@ -220,23 +223,42 @@ class Text(Content):
             res = deepcopy(self)  # copie sinon
 
         if self._word_list is None:  # si pas de liste de mots
+            if preprocessing is None:
+                warnings.warn("the 'word_list' method was not called on current instance before lemmatizing and no "
+                              "preprocessing was set. If it's intentional please ignore this warning.")
             res.word_list(preprocessing, inplace=True, **kwargs)  # on modifie l'objet en place
         # TODO : scabreux, demander avant au user de générer la liste de mots ?
         # TODO : et retourner les listes de mots / lemmes si en place ?
 
         # lemmatisation
         if lemmatizer is None:
-            res._lemmes = [word.lower() for word in self._word_list]
+            res._lemmas = [word.lower() for word in res._word_list]
         else:
-            res._lemmes = lemmatizer(self._word_list)  # TODO : implémenter la lemmatisation
+            res._lemmas = lemmatizer(res._word_list)  # TODO : implémenter la lemmatisation
 
         return  None if inplace else res
 
-    def set_keywords(self, ref_keywords: Set[str] | None = None, inplace: bool = False) -> Set[str]:
+    def set_keywords(self, ref_keywords: Set[str] | None = None, lemmatizer: Callable | None = None,
+                     preprocessing: Callable | None = None, inplace: bool = False, **kwargs):
         """Méthode pour obtenir l'ensemble des mots clés à partir mots, utilise la liste de mots dans _word_list si déjà générée, sinon
         appelle la méthode word_list()"""
-        # TODO : implémenter la recherche de mots-clés dans les résultats d'OCR
-        pass
+        if inplace:
+            res = self  # cet objet si en place
+        else:
+            res = deepcopy(self)  # copie sinon
+
+        if self._lemmas is None:  # si pas de liste lemmes
+            if lemmatizer is None:
+                warnings.warn("the 'lemmatize' method was not called on current instance before keyword recuperation "
+                              "and no lemmatizer was set. If it's intentional please ignore this warning.")
+            res.lemmatize(lemmatizer, preprocessing, inplace=True, **kwargs)  # on modifie l'objet en place
+
+        # lemmatisation
+        if ref_keywords is None:
+            ref_keywords = set()
+        res.keywords = ref_keywords & set(res._lemmas)
+
+        return  None if inplace else res
 
 
 

@@ -171,10 +171,6 @@ class TestClassText:
             res_pred.append(kw)
         assert len(res_pred) == 0
 
-    def test_set_keywords(self):
-        # TODO : implémenter la recherche de mots-clés dans les résultats d'OCR
-        pass
-
     def test_get_keywords(self, pred_text, manual_text):
         assert manual_text.get_keywords() == {'test', 'manuel'}
         assert pred_text.get_keywords() == set()
@@ -200,6 +196,9 @@ class TestClassText:
     def test_rotate(self, init_orient, rotation, final_orient):
         assert Text(orientation=init_orient).rotate(rotation) == Text(orientation=final_orient)
 
+    def test_process_content(self, pred_text):
+        test_p = Text()
+        assert test_p.process_content(ocr_result='test du contenu prédit', confidence=0.8, orientation=90) == pred_text
 
     def test_word_list(self, pred_text, manual_text):
         # TODO : voir comment se débarrasser des caractères spéciaux
@@ -207,6 +206,46 @@ class TestClassText:
         assert pred_text._word_list is None  # pas de modification en place ici
         assert manual_text.word_list()._word_list == ['test', 'du', 'contenu', 'manuel']
         assert manual_text._word_list is None  # pas de modification en place ici
+        assert Text(
+            is_manual=True,
+            ocr_result="ALLAND'HUY. - L’Eglise.",
+            keywords=["église"],
+            orientation=0,
+        ).word_list()._word_list == ['alland', 'huy', 'l', 'eglise']
+        assert Text(
+            is_manual=True,
+            ocr_result="ALLAND'HUY. - L’Eglise.",
+            keywords=["église"],
+            orientation=0,
+        ).word_list(preprocessing=lambda x: x.lower())._word_list == ['alland\'huy.', '-', 'l’eglise.']
+
+    def test_lemmatize(self):
+        assert Text(
+            is_manual=True,
+            ocr_result="Wilmet, phot., Rethel. - Livoir, édit., Vouziers.",
+            keywords=None,
+            orientation=90,
+        ).word_list().lemmatize()._lemmas == ['wilmet', 'phot', 'rethel', 'livoir', 'édit', 'vouziers']
+        assert Text(
+            is_manual=True,
+            ocr_result="Wilmet, phot., Rethel. - Livoir, édit., Vouziers.",
+            keywords=None,
+            orientation=90,
+        ).lemmatize(preprocessing=lambda x: x)._lemmas == ['wilmet,', 'phot.,', 'rethel.', '-', 'livoir,', 'édit.,', 'vouziers.']
+
+    def test_set_keywords(self):
+        assert Text(
+            is_manual=True,
+            ocr_result="ALLAND'HUY. - L’Eglise.",
+            keywords=["église"],
+            orientation=0,
+        ).word_list().lemmatize().set_keywords({'eglise', 'chateau'}).keywords == {'eglise'}
+        assert Text(
+            is_manual=True,
+            ocr_result="ALLAND'HUY. - L’Eglise.",
+            keywords=["église"],
+            orientation=0,
+        ).set_keywords({'eglise', 'chateau', 'l’eglise.'}, lemmatizer=lambda x: x, preprocessing=lambda x: x.lower()).keywords == {'l’eglise.'}
 
 
 
