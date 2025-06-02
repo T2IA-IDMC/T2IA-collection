@@ -242,7 +242,7 @@ class Text(Content):
         return  None if inplace else res
 
     def lemmatize(self, lemmatizer: Callable | None = None, preprocessing: Callable | None = None,
-                  inplace: bool = False, warn=True, **kwargs):
+                  inplace: bool = False, warn: bool=True, **kwargs):
         """Méthode pour lemmatizer une liste de mots, utilise la liste de mots dans _word_list si déjà générée, sinon
         appelle la méthode word_list()"""
         res = self if inplace else self.copy()
@@ -265,7 +265,7 @@ class Text(Content):
         return  None if inplace else res
 
     def set_keywords(self, ref_keywords: Set[str] | None = None, lemmatizer: Callable | None = None,
-                     preprocessing: Callable | None = None, inplace: bool = False, warn=True, **kwargs):
+                     preprocessing: Callable | None = None, inplace: bool = False, warn: bool=True, **kwargs):
         """Méthode pour obtenir l'ensemble des mots clés à partir mots, utilise la liste de mots dans _word_list si déjà générée, sinon
         appelle la méthode word_list()"""
         res = self if inplace else self.copy()

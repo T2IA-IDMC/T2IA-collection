@@ -296,4 +296,4 @@ class Detection:
                          confidence=data['confidence'],
                          content=data['content'])
 
-
+    # TODO : rotation, etc ...

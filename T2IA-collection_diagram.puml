@@ -1,14 +1,17 @@
-@startuml
-' Classes abstraites
+@startuml classes
+set namespaceSeparator none
+
+' collection.py
+
 abstract class Collection {
-  - items: dict
+  + items: dict
   + load(file_path)
   + save(file_path)
   + filter(criteria)
 }
 
 class CardCollection {
-  - postcards: dict[str, Postcard]
+  + postcards: dict[str, Postcard]
   + load(file_path)
   + save(file_path)
   + filter_by_tags(tags)
@@ -18,17 +21,12 @@ class CardCollection {
   + filter_by_region(region)
 }
 
-abstract class Detection {
-  - bbox: BoundingBox
-  - is_manual: bool
-  + process_content()
-}
+' postcard.py
 
-' Classes concrètes
 class Postcard {
-  - path: str
-  - name: str
-  - annotations: Annotations
+  + path: str
+  + name: str
+  + annotations: Annotations
   + get_annotations()
   + set_annotations(annotations: Annotations)
   + save_annotations()
@@ -41,11 +39,11 @@ class Postcard {
 }
 
 class Annotations {
-  - location: Location
-  - tags: list[str]
-  - keywords: list[str]
-  - detections: list[Detection]
-  - rotation: int
+  + location: Location
+  + tags: list[str]
+  + keywords: list[str]
+  + detections: list[Detection]
+  + rotation: int
 '  + to_tensor()
 '  + to_yolo_format()
 '  + to_cvat_format()
@@ -56,80 +54,174 @@ class Annotations {
 }
 
 class Location {
-  - town: str
-  - department: str
-  - region: str
-  - gps: tuple[float, float]
+  + town: str
+  + department: str
+  + region: str
+  + gps: tuple[float, float]
+}
+' detection.py
+
+class "Detection" as Detection {
+  + bbox: BoundingBox
+  + is_manual : bool
+  + confidence : float | None
+  + content : Content | None
+  + copy()
+  + isprocessed() -> bool
+  + to_dict() -> dict
+  + from_dict(data: dict) -> Detection
+  ...rotate(...)
 }
 
-class BoundingBox {
-  - x: float
-  - y: float
-  - w: float
-  - h: float
-  + rotate(angle)
-  + transform(coords)
+class "BoundingBox" as BoundingBox {
+  + h: float
+  + w: float
+  + x: float
+  + y: float
+  + copy()
+  + isclose(other: BoundingBox, rtol, atol) -> bool
+  + isvalid(atol) -> bool
+  + rotate(theta: Orientation | int | float | str | None) -> BoundingBox
+  + xywh(img_size: Tuple[int, int]) -> Tuple[float, float, float, float]
+  + xywhn() -> Tuple[float, float, float, float]
+  + xyxy(img_size: Tuple[int, int]) -> Tuple[float, float, float, float]
+  + xyxyn() -> Tuple[float, float, float, float]
+  + xxyy(img_size: Tuple[int, int]) -> Tuple[float, float, float, float]
+  + xxyyn() -> Tuple[float, float, float, float]
+  + to_dict() -> Dict[str, float]
+  + from_dict(data: Dict[str, float]) -> BoundingBox
+  + from_coords(coords: Sequence[float], coord_format: CoordFormat | str, img_size: Optional[Tuple[float, float]]) -> BoundingBox
+  + to_coords(coord_format: CoordFormat | str, img_size: Optional[Tuple[int, int]]) -> Tuple[float, float, float, float]
 }
 
-abstract class Text {
-  - orientation: int
-  - ocr_result: str
-  - keywords: list[str]
-  + process_content()
+enum "CoordFormat" as CoordFormat {
+  XYWH: 'xywh'
+  XYWHN: 'xywhn'
+  XYXY: 'xyxy'
+  XYXYN: 'xyxyn'
+  XXYY: 'xxyy'
+  XXYYN: 'xxyyn'
+  + is_normalized() -> bool
 }
 
-abstract class Postmark {
-  - ...
-  + process_content()
+' content.py
+
+abstract class "Content" as Content {
+  + confidence: float | None
+  + is_manual: bool | None
+  + copy()
+  + get_cls_name() -> str
+  + isprocessed() -> bool
+  + to_dict() -> dict
+  + from_dict(data: dict) -> Content
+  + to_series()
+  + from_series(data) -> Content
+  + create_instance(class_name: str | None, class_dict: dict | None)
+  + process_content(confidence: float, inplace: bool)
+  # _to_full_dict() -> dict
 }
 
-class Printed {
-  - is_editor: bool
+abstract class "Text" as Text {
+  + ocr_result: str
+  + keywords: Set[str] | List[str] | None
+  + orientation: Orientation | int | float | str | None
+  # _word_list: List[str]
+  # _lemmas: List[str]
+  + get_keywords() -> Set[str]
+  + to_dict() -> dict
+  + rotate(theta: Orientation | int | float | str | None) -> Text
+  + process_content(ocr_result: str, orientation: Orientation | int | float | str | None, confidence: float, inplace: bool)
+  + word_list(preprocessing: Callable | None, inplace: bool, sep: LiteralString | None, maxsplit: SupportsIndex)
+  + lemmatize(lemmatizer: Callable | None, preprocessing: Callable | None, inplace: bool, warn: bool)
+  + set_keywords(ref_keywords: Set[str] | None, lemmatizer: Callable | None, preprocessing: Callable | None, inplace: bool, warn: bool)
+  # _to_full_dict() -> dict
 }
 
-class Handwritten {
-  - ...
+class "Postmark" as Postmark {
+  + ...
 }
 
-class SceneText {
-  - ...
+class "PrintedText" as PrintedText {
+  + is_editor: bool
+  + set_editor(is_editor: bool, inplace: bool)
 }
 
-class Stamp {
-  - country: str
-  - color: str
-  - price: str
+class "HandwrittenText" as HandwrittenText {
+  + ...
 }
 
-class DateStamp {
-  - postal_agency: str
-  - date: str
-  - department: str
-  - starred_hour: bool
-  - collection: str
-  - type
-  - quality
+class "SceneText" as SceneText {
+  + ...
 }
 
-class OtherMark {
-  - type
+class "PostageStamp" as PostageStamp {
+  + color: str | None
+  + country: str
+  + price: float | None
 }
 
+class "DateStamp" as DateStamp {
+  + collection: str | None
+  + date: DateISO8601 | str | None
+  + department: str | None
+  + mark_type: DateStampType | str
+  + postal_agency: str | None
+  + quality: DateStampQuality | str
+  + starred_hour: bool
+  + process_content(datestamp_dict: dict | None, inplace: bool)
+  + to_dict() -> dict
+  # _to_full_dict() -> dict
+}
+
+class "OtherMark" as OtherMark {
+  + is_editor: bool
+  + set_editor(is_editor: bool, inplace: bool)
+}
+
+class "DateISO8601" as DateISO8601 {
+  date_str: str | None
+  {abstract}isvalid()
+}
+enum "DateStampQuality" as DateStampQuality {
+  POOR: "poor"
+  MEDIOCRE: "mediocre"
+  GOOD: "good"
+}
+enum "DateStampType" as DateStampType {
+  POST_OFFICE: "post office"
+  AUXILIARY_OFFICE: "auxiliary post office"
+  LINE_CONVEYOR: "line conveyor"
+  DISTRIBUTION_OFFICE: "distribution office"
+}
+enum "Orientation" as Orientation {
+  ZERO: 0
+  NINETY: 90
+  ONE_EIGHTY: 180
+  TWO_SEVENTY: 270
+  + from_input(theta: int | float | str | None) -> 'Orientation'
+}
 
 ' Relations
-Collection <|.. CardCollection : hérite
+Collection <|-- CardCollection : hérite
 CardCollection o--> "many" Postcard : contient
 Postcard o--> "1" Annotations : contient
-Annotations o--> "1" Location : contient
-Location --> Printed : utilise
-Annotations o--> "many" Detection : contient
-Detection o--> "1" BoundingBox : contient
-Detection <|.. Text : hérite
-Detection <|.. Postmark : hérite
-Text <|.. Printed : hérite
-Text <|.. Handwritten : hérite
-Text <|.. SceneText : hérite
-Postmark <|.. Stamp : hérite
-Postmark <|.. DateStamp : hérite
-Postmark <|.. OtherMark : hérite
+Annotations "1" o--> "1" Location : contient
+Location --> PrintedText : utilise
+Annotations "1" o--> "many" Detection : contient
+Detection "1" *--> "1" BoundingBox : contient
+BoundingBox --> Orientation : utilise
+BoundingBox --> CoordFormat : utilise
+Detection "1" o--> "1" Content : contient
+Content <|-- Text : hérite
+Text --> Orientation : utilise
+Content <|-- Postmark : hérite
+Text <|-- PrintedText : hérite
+Text <|-- HandwrittenText : hérite
+Text <|-- SceneText : hérite
+Postmark <|-- PostageStamp : hérite
+Postmark <|-- DateStamp : hérite
+DateStamp --> DateISO8601 : utilise
+DateStamp --> DateStampQuality : utilise
+DateStamp --> DateStampType : utilise
+Postmark <|-- OtherMark : hérite
 @enduml
