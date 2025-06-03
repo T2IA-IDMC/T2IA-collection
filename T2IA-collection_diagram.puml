@@ -26,12 +26,14 @@ class CardCollection {
 class Postcard {
   + path: str
   + name: str
+  + orientation ?
   + annotations: Annotations
   + get_annotations()
   + set_annotations(annotations: Annotations)
   + save_annotations()
   + load_annotations()
   + draw_bboxes()
+  + load_image()
   + rotate_image(angle)
   + plot() ?
   + to_array() ?
@@ -67,6 +69,7 @@ class "Detection" as Detection {
   + confidence : float | None
   + content : Content | None
   + copy()
+  + isempty() -> bool
   + isprocessed() -> bool
   + to_dict() -> dict
   + from_dict(data: dict) -> Detection
@@ -109,15 +112,17 @@ enum "CoordFormat" as CoordFormat {
 abstract class "Content" as Content {
   + confidence: float | None
   + is_manual: bool | None
-  + copy()
+  + copy() -> Content
   + get_cls_name() -> str
   + isprocessed() -> bool
   + to_dict() -> dict
   + from_dict(data: dict) -> Content
-  + to_series()
+  + to_series() -> pd.Series
   + from_series(data) -> Content
-  + create_instance(class_name: str | None, class_dict: dict | None)
-  + process_content(confidence: float, inplace: bool)
+  + create_instance(class_name: str | None, class_dict: dict | None) -> Content
+  + to_json_object(full: bool = True) -> dict
+  + from_json_object(json_object: dict | None = None) -> Content
+  + process_content(confidence: float, inplace: bool) -> Content | None
   # _to_full_dict() -> dict
 }
 
@@ -130,10 +135,10 @@ abstract class "Text" as Text {
   + get_keywords() -> Set[str]
   + to_dict() -> dict
   + rotate(theta: Orientation | int | float | str | None) -> Text
-  + process_content(ocr_result: str, orientation: Orientation | int | float | str | None, confidence: float, inplace: bool)
-  + word_list(preprocessing: Callable | None, inplace: bool, sep: LiteralString | None, maxsplit: SupportsIndex)
-  + lemmatize(lemmatizer: Callable | None, preprocessing: Callable | None, inplace: bool, warn: bool)
-  + set_keywords(ref_keywords: Set[str] | None, lemmatizer: Callable | None, preprocessing: Callable | None, inplace: bool, warn: bool)
+  + process_content(ocr_result: str, orientation: Orientation | int | float | str | None, confidence: float, inplace: bool) -> Text | None
+  + word_list(preprocessing: Callable | None, inplace: bool, sep: LiteralString | None, maxsplit: SupportsIndex) -> Text | None
+  + lemmatize(lemmatizer: Callable | None, preprocessing: Callable | None, inplace: bool, warn: bool) -> Text | None
+  + set_keywords(ref_keywords: Set[str] | None, lemmatizer: Callable | None, preprocessing: Callable | None, inplace: bool, warn: bool) -> Text | None
   # _to_full_dict() -> dict
 }
 
@@ -143,7 +148,7 @@ abstract class "Postmark" as Postmark {
 
 class "PrintedText" as PrintedText {
   + is_editor: bool
-  + set_editor(is_editor: bool, inplace: bool)
+  + set_editor(is_editor: bool, inplace: bool) -> PrintedText | None
 }
 
 class "HandwrittenText" as HandwrittenText {
@@ -175,12 +180,12 @@ class "DateStamp" as DateStamp {
 
 class "OtherMark" as OtherMark {
   + is_editor: bool
-  + set_editor(is_editor: bool, inplace: bool)
+  + set_editor(is_editor: bool, inplace: bool) -> OtherMark | None
 }
 
 class "DateISO8601" as DateISO8601 {
   date_str: str | None
-  {abstract}isvalid()
+  {abstract}isvalid() -> bool
 }
 enum "DateStampQuality" as DateStampQuality {
   POOR: "poor"
@@ -198,7 +203,7 @@ enum "Orientation" as Orientation {
   NINETY: 90
   ONE_EIGHTY: 180
   TWO_SEVENTY: 270
-  + from_input(theta: int | float | str | None) -> 'Orientation'
+  + from_input(theta: int | float | str | None) -> Orientation
 }
 
 ' Relations

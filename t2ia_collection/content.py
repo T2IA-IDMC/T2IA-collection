@@ -39,7 +39,7 @@ class Content(ABC):
     # -----------
     def isprocessed(self) -> bool:
         """Vérifie si le contenu a été extrait"""
-        return self.is_manual is not None
+        return self.is_manual is not None  # ou comparer avec self == self.__class__() ?
 
     # pour exporter/importer :
     # ------------------------
@@ -77,7 +77,7 @@ class Content(ABC):
     # créer n'importe quelle sous-classe
     # ----------------------------------
     @classmethod
-    def create_instance(cls, class_name: str | None = None, class_dict: dict | None = None):
+    def create_instance(cls, class_name: str | None = None, class_dict: dict | None = None) -> "Content":
         """Permet de créer n'importe quelle sous-classe à partir de son nom (et d'un dict optionnel)"""
         # Récupérer toutes les sous-classes et la classe courante
         def get_all_subclasses(cls):
@@ -98,6 +98,20 @@ class Content(ABC):
         # Instancier la classe avec les attributs du dictionnaire
         res = dict_subcls[class_name]() if class_dict is None else dict_subcls[class_name].from_dict(class_dict)
         return res
+
+    def to_json_object(self, full: bool = True) -> dict:
+        """Renvoie un dictionnaire {self.get_cls_name(): self.to_dict()}"""
+        return {self.get_cls_name(): self.to_dict()} if full else {self.get_cls_name(): self._to_full_dict()}
+
+    @classmethod
+    def from_json_object(cls, json_object: dict | None = None) -> "Content":
+        """Permet de créer n'importe quelle sous-classe à partir l'objet json {self.get_cls_name(): self.to_dict()}"""
+        if json_object is None:
+            class_name, class_dict = None, None
+        else:
+            class_name, class_dict = tuple(json_object.items())[0]
+        return cls.create_instance(class_name, class_dict)
+
 
     # Les traitements :
     # -----------------

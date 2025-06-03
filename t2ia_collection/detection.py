@@ -259,10 +259,12 @@ class Detection:
     bbox: BoundingBox
     is_manual: bool = True
     confidence: float | None = None
-    content: Content | None = None  # TODO : faire le lien avec les classes Content
+    content: Content | None = None
 
     def __post_init__(self):
         """Vérification de la présence d'un score de confiance si contenu non annoté manuellement"""
+        if self.content is None:
+            self.content = Content()  # on aura ainsi toujours un contenu, même vide
         if (self.is_manual is False) and self.confidence is None:
             raise ValueError("Confidence must be set if the detection is not manually set.")
 
@@ -272,9 +274,15 @@ class Detection:
 
     # Les tests :
     # -----------
+    def isempty(self) -> bool:
+        """Vérifie si le contenu de la détection est vide"""
+        # est vide si le contenu est vide
+        return self.content == Content()
+
     def isprocessed(self) -> bool:
         """Vérifie si un contenu a été extrait à partir de la détection"""
-        return self.content is not None
+        # est processed si le contenu est processed
+        return self.content.isprocessed()
 
     # pour exporter/importer :
     # ------------------------
@@ -284,7 +292,7 @@ class Detection:
             'bbox': self.bbox.to_dict(),
             'is_manual': self.is_manual,
             'confidence': self.confidence,
-            'content': self.content.to_dict() if self.isprocessed() else None
+            'content': self.content.to_json_object() if not self.isempty() else None
         }
         return res
 
@@ -294,6 +302,6 @@ class Detection:
         return Detection(bbox=BoundingBox.from_dict(data['bbox']),
                          is_manual=data['is_manual'],
                          confidence=data['confidence'],
-                         content=data['content'])
+                         content=Content.from_json_object(data['content']))
 
-    # TODO : rotation, etc ...
+    # TODO : rotation, "create_instance" etc ...

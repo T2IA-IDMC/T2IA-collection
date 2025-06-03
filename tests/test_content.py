@@ -53,6 +53,17 @@ def datestamp_bad_json():
             'mark_type': 'datestamp',
             'quality': 'good'}
 
+@pytest.fixture
+def datestamp_json_object():
+    return {'DateStamp': {'is_manual': True,
+                          'postal_agency': 'EPERNAY',
+                          'date': '1907-08-05T22:30',
+                          'department': 'MARNE',
+                          'starred_hour': False,
+                          'collection': None,
+                          'mark_type': 'post office',
+                          'quality': 'good'}}
+
 # ======================================================================================================================
 # CONTENT Abstract Class
 # ======================================================================================================================
@@ -617,3 +628,18 @@ class TestContentCreateInstance:
             DateStamp.create_instance('DateStamp', datestamp_bad_json)
         with pytest.raises(ValueError):
             DateStamp.create_instance('Postmark')
+
+    def test_to_json_object(self, pred_text, dict_pred_text, datestamp_json, datestamp_json_object):
+        assert Content().to_json_object() == {'Content': {'is_manual': None, 'confidence': None}}
+        assert DateStamp().from_dict(datestamp_json_object['DateStamp']).to_json_object() == datestamp_json_object
+        assert Text.from_dict(dict_pred_text).to_json_object() == {'Text': dict_pred_text}
+        assert pred_text.to_json_object() == {'Text': dict_pred_text}
+
+    def test_from_json_object(self, dict_pred_text, datestamp_json):
+        assert Content.from_json_object({'Content': {'is_manual': None, 'confidence': None}}) == Content()
+        assert DateStamp.from_json_object({'DateStamp': datestamp_json}) == DateStamp.from_dict(datestamp_json)
+        assert Content.from_json_object({'DateStamp': datestamp_json}) == DateStamp.from_dict(datestamp_json)
+        assert Content.from_json_object(DateStamp.from_dict(datestamp_json).to_json_object()) == DateStamp.from_dict(datestamp_json)
+        assert PrintedText.from_json_object({'PrintedText': dict_pred_text}) == PrintedText.from_dict(dict_pred_text)
+        assert Content.from_json_object({'PrintedText': dict_pred_text}) == PrintedText.from_dict(dict_pred_text)
+        assert Content.from_json_object(PrintedText.from_dict(dict_pred_text).to_json_object()) == PrintedText.from_dict(dict_pred_text)

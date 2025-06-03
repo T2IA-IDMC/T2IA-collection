@@ -43,17 +43,55 @@ def invalid_bbox(test_bboxes):
 # Detection
 # ---------
 @pytest.fixture
-def dict_detection(test_bboxes):
+def dict_empty_det(test_bboxes):
   return {'bbox': {coord: value for coord, value in zip('xywh', test_bboxes['xywhn'])},
           'is_manual': False,
           'confidence': 0.75,
           'content': None}
 
 @pytest.fixture
-def detection(bbox):
+def dict_text_det():
+  return {'bbox': {'x': 0.239518, 'y': 0.038474, 'w': 0.23065, 'h': 0.033355},
+          'is_manual': True,
+          'confidence': None,
+          'content': {'PrintedText': {'is_manual': True,
+                      'confidence': None,
+                      'ocr_result': "ALLAND'HUY. - L’Eglise.",
+                      'keywords': ['église'],
+                      'orientation': 0,
+                      'is_editor': False}}}
+
+@pytest.fixture
+def dict_datestamp_det():
+  return {'bbox': {'x': 0.694804, 'y': 0.164404, 'w': 0.183935, 'h': 0.275776},
+          'is_manual': True,
+          'confidence': None,
+          'content': {'DateStamp': {'is_manual': True,
+                                    'postal_agency': 'ATTIGNY',
+                                    'date': 'XXXX-07-30TXX:XX',
+                                    'department': 'ARDENNES',
+                                    'starred_hour': False,
+                                    'collection': '3E',
+                                    'mark_type': 'post office',
+                                    'quality': 'mediocre'}}}
+
+@pytest.fixture
+def empty_det(bbox):
     return Detection(bbox, is_manual=False, confidence=0.75)
 
+@pytest.fixture
+def text_det(dict_text_det):
+  return Detection(BoundingBox.from_dict(dict_text_det['bbox']),
+                   is_manual=dict_text_det['is_manual'],
+                   confidence=dict_text_det['confidence'],
+                   content=Content.from_json_object(dict_text_det['content']))
 
+@pytest.fixture
+def datestamp_det(dict_datestamp_det):
+  return Detection(BoundingBox.from_dict(dict_datestamp_det['bbox']),
+                   is_manual=dict_datestamp_det['is_manual'],
+                   confidence=dict_datestamp_det['confidence'],
+                   content=Content.from_json_object(dict_datestamp_det['content']))
 
 # ======================================================================================================================
 # TESTS BoundingBox
@@ -175,18 +213,35 @@ class TestClassDetection:
         with pytest.raises(ValueError):
             Detection(bbox, is_manual=False)
 
-    def test_isprocessed(self, bbox):
+    def test_isempty(self, bbox, empty_det, text_det, datestamp_det):
+        """test if Detection has content"""
+        assert Detection(bbox).isempty()
+        assert empty_det.isempty()
+        assert not Detection(bbox, content=DateStamp()).isempty()  # pas vide, mais pas process
+        assert not text_det.isempty()
+        assert not datestamp_det.isempty()
+
+    def test_isprocessed(self, bbox, empty_det, text_det, datestamp_det):
         """test if Detection has content"""
         assert not Detection(bbox).isprocessed()
-        # TODO : add with a content
+        assert not empty_det.isprocessed()
+        assert not Detection(bbox, content=DateStamp()).isprocessed()  # pas vide, mais pas process
+        assert text_det.isprocessed()
+        assert datestamp_det.isprocessed()
 
-    def test_to_dict(self, detection, dict_detection):
+    def test_to_dict(self, empty_det, text_det, datestamp_det, dict_empty_det, dict_text_det, dict_datestamp_det):
         """test Detection transformation to dict"""
-        assert detection.to_dict() == dict_detection
+        assert empty_det.to_dict() == dict_empty_det
+        assert text_det.to_dict() == dict_text_det
+        assert datestamp_det.to_dict() == dict_datestamp_det
 
-    def test_from_dict(self, detection, dict_detection):
+    def test_from_dict(self, empty_det, text_det, datestamp_det, dict_empty_det, dict_text_det, dict_datestamp_det):
         """test Detection instantiation from dict"""
-        assert detection == Detection.from_dict(dict_detection)
-        assert detection == Detection.from_dict(detection.to_dict())
+        assert empty_det == Detection.from_dict(dict_empty_det)
+        assert empty_det == Detection.from_dict(empty_det.to_dict())
+        assert text_det == Detection.from_dict(dict_text_det)
+        assert text_det == Detection.from_dict(text_det.to_dict())
+        assert datestamp_det == Detection.from_dict(dict_datestamp_det)
+        assert datestamp_det == Detection.from_dict(datestamp_det.to_dict())
 
 
