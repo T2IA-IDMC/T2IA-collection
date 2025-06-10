@@ -229,6 +229,14 @@ class TestClassDetection:
         assert text_det.isprocessed()
         assert datestamp_det.isprocessed()
 
+    def test_get_content_cls(self, bbox, datestamp_det):
+        """test Content class retrieval"""
+        assert Detection(bbox).get_content_cls() == "Content"
+        assert Detection(bbox).get_content_cls() != "PrintedText"
+        assert Detection(bbox, content=DateStamp()).get_content_cls() != "Content"
+        assert Detection(bbox, content=DateStamp()).get_content_cls() == "DateStamp"
+        assert Detection(bbox, content=PrintedText()).get_content_cls() == "PrintedText"
+
     def test_to_dict(self, empty_det, text_det, datestamp_det, dict_empty_det, dict_text_det, dict_datestamp_det):
         """test Detection transformation to dict"""
         assert empty_det.to_dict() == dict_empty_det

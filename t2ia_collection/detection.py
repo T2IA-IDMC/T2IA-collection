@@ -284,15 +284,24 @@ class Detection:
         # est processed si le contenu est processed
         return self.content.isprocessed()
 
+    # liées à Content :
+    # -----------------
+    def get_content_cls(self) -> str:
+        """retourne la classe du contenu"""
+        return self.content.get_cls_name()
+
+    # opérations :
+    # ------------
+
     # pour exporter/importer :
     # ------------------------
-    def to_dict(self) -> dict:
+    def to_dict(self, full: bool = True) -> dict:
         """Renvoie un dictionnaire avec le contenu de la classe"""
         res = {
             'bbox': self.bbox.to_dict(),
             'is_manual': self.is_manual,
             'confidence': self.confidence,
-            'content': self.content.to_json_object() if not self.isempty() else None
+            'content': self.content.to_json_object(full=full) if not self.isempty() else None
         }
         return res
 

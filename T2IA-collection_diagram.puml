@@ -71,6 +71,7 @@ class "Detection" as Detection {
   + copy()
   + isempty() -> bool
   + isprocessed() -> bool
+  + get_content_cls() -> str
   + to_dict() -> dict
   + from_dict(data: dict) -> Detection
   ...rotate(...)
