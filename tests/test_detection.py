@@ -134,6 +134,11 @@ class TestClassBoundingBox:
                                               w=0.2762804627418518, h=0.15120507776737213)
         assert bbox.rotate("90") == bbox.rotate(90)
         assert bbox == bbox.rotate(None)
+        # test inplace
+        bbox_test = bbox.copy()
+        bbox_test.rotate(90, inplace=True)
+        assert bbox_test != bbox
+        assert bbox_test == bbox.rotate(90)
 
     def test_invalid_rotation(self, bbox):
         """test rotation of BoundingBox avec des angles invalides"""

@@ -80,11 +80,13 @@ class BoundingBox:
 
     # Les rotations :
     # ---------------
-    def rotate(self, theta: Orientation | int | float | str | None = Orientation.NINETY) -> "BoundingBox":
+    def rotate(self, theta: Orientation | int | float | str | None = Orientation.NINETY, inplace: bool = False):
         """
         Rotation d'un point de coordonnées xy d'un angle theta en degrés, multiple de 90°, par rapport au centre de
         rotation xy_center.
         """
+        res = self if inplace else self.copy()
+
         # Centre de rotation
         cx, cy = 0.5, 0.5
         # Test de la validité de l'angle
@@ -103,7 +105,10 @@ class BoundingBox:
         y_rot = x_trans * sin_theta + y_trans * cos_theta
         w_rot = self.w * cos_theta ** 2 + self.h * sin_theta ** 2
         h_rot = self.w * sin_theta ** 2 + self.h * cos_theta ** 2
-        return BoundingBox(x_rot + cx, y_rot + cy, w_rot, h_rot)
+        # modification des coordonnées
+        res.x, res.y, res.w, res.h = x_rot + cx, y_rot + cy, w_rot, h_rot
+
+        return None if inplace else res
 
     # Les différentes coordonnées :
     # -----------------------------
