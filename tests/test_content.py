@@ -239,6 +239,14 @@ class TestClassText:
                                                                      (90, "-180", 270)])
     def test_rotate(self, init_orient, rotation, final_orient):
         assert Text(orientation=init_orient).rotate(rotation) == Text(orientation=final_orient)
+        # pour inplace
+        test_inplace = Text(orientation=init_orient)
+        test_inplace.rotate(rotation, inplace=True)
+        assert test_inplace == Text(orientation=final_orient)
+        if init_orient != final_orient:
+            assert test_inplace != Text(orientation=init_orient)
+        else:
+            assert test_inplace == Text(orientation=init_orient)
 
     def test_process_content(self, pred_text):
         test_p = Text()

@@ -208,19 +208,20 @@ class Text(Content):
 
     # Les rotations :
     # ---------------
-    def rotate(self, theta: Orientation | int | float | str | None = 90) -> "Text":
+    def rotate(self, theta: Orientation | int | float | str | None = 90, inplace: bool= False):
         """
         Rotation de l'orientation du texte par rapport à une rotation de l'image
         """
-        dict_text = self._to_full_dict()
+        res = self if inplace else self.copy()
+
         # Test de la validité de l'angle
         if not isinstance(theta, Orientation):
             theta = Orientation.from_input(theta)
 
         # nouvelle orientation
-        dict_text["orientation"] = self.orientation.value - theta.value
+        res.orientation = Orientation.from_input(res.orientation.value - theta.value)
 
-        return self.__class__.from_dict(dict_text)
+        return None if inplace else res
 
     # Les traitements :
     # -----------------

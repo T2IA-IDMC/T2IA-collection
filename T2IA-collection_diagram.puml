@@ -135,7 +135,7 @@ abstract class "Text" as Text {
   # _lemmas: List[str]
   + get_keywords() -> Set[str]
   + to_dict() -> dict
-  + rotate(theta: Orientation | int | float | str | None) -> Text
+  + rotate(theta: Orientation | int | float | str | None, inplace: bool) -> Text
   + process_content(ocr_result: str, orientation: Orientation | int | float | str | None, confidence: float, inplace: bool) -> Text | None
   + word_list(preprocessing: Callable | None, inplace: bool, sep: LiteralString | None, maxsplit: SupportsIndex) -> Text | None
   + lemmatize(lemmatizer: Callable | None, preprocessing: Callable | None, inplace: bool, warn: bool) -> Text | None
