@@ -291,12 +291,21 @@ class Detection:
 
     # liées à Content :
     # -----------------
-    def get_content_cls(self) -> str:
+    def get_content_cls(self):
         """retourne la classe du contenu"""
         return self.content.get_cls_name()
 
     # opérations :
     # ------------
+    def rotate(self, theta: Orientation | int | float | str | None = Orientation.NINETY, inplace: bool = False):
+        """
+        Rotation de la bbox et du contenu de la détection d'un angle théta.
+        """
+        res = self if inplace else self.copy()
+        res.bbox.rotate(theta, inplace=True)
+        if isinstance(res.content, Text):  # car seuls les Text ont une orientation
+            res.content.rotate(theta, inplace=True)
+        return None if inplace else res
 
     # pour exporter/importer :
     # ------------------------
@@ -318,4 +327,4 @@ class Detection:
                          confidence=data['confidence'],
                          content=Content.from_json_object(data['content']))
 
-    # TODO : rotation, "create_instance" etc ...
+    # TODO : "create_instance" etc ...

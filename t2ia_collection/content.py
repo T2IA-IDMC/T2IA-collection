@@ -208,7 +208,7 @@ class Text(Content):
 
     # Les rotations :
     # ---------------
-    def rotate(self, theta: Orientation | int | float | str | None = 90, inplace: bool= False):
+    def rotate(self, theta: Orientation | int | float | str | None = Orientation.NINETY, inplace: bool= False):
         """
         Rotation de l'orientation du texte par rapport à une rotation de l'image
         """

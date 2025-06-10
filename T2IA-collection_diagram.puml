@@ -72,9 +72,10 @@ class "Detection" as Detection {
   + isempty() -> bool
   + isprocessed() -> bool
   + get_content_cls() -> str
+  + rotate(theta: Orientation | int | float | str | None, inplace: bool) -> Detection | None
   + to_dict() -> dict
   + from_dict(data: dict) -> Detection
-  ...rotate(...)
+  ...create_instance(...), process_content(...)
 }
 
 class "BoundingBox" as BoundingBox {

@@ -141,7 +141,7 @@ class TestClassBoundingBox:
         assert bbox_test == bbox.rotate(90)
 
     def test_invalid_rotation(self, bbox):
-        """test rotation of BoundingBox avec des angles invalides"""
+        """test rotation of BoundingBox with invalid angles"""
         with pytest.raises(ValueError):
             bbox.rotate(68)
         with pytest.raises(ValueError):
@@ -241,6 +241,23 @@ class TestClassDetection:
         assert Detection(bbox, content=DateStamp()).get_content_cls() != "Content"
         assert Detection(bbox, content=DateStamp()).get_content_cls() == "DateStamp"
         assert Detection(bbox, content=PrintedText()).get_content_cls() == "PrintedText"
+
+    def test_rotate(self, empty_det, text_det, datestamp_det):
+        """test rotation of Detection"""
+        assert empty_det.rotate(90).rotate(-90) == empty_det
+        assert text_det.rotate(90).rotate(270) == text_det
+        assert datestamp_det.rotate(180).rotate(180) == datestamp_det
+        # inplace
+        text_det_copy = text_det.copy()
+        text_det_copy.rotate(90, inplace=True)
+        assert text_det_copy.bbox == text_det.bbox.rotate(90)
+        assert text_det_copy.content.orientation == Orientation.from_input(270)
+        assert text_det_copy == text_det.rotate(90)
+        assert text_det_copy != text_det
+        datestamp_det_copy = datestamp_det.copy()
+        datestamp_det_copy.rotate(180, inplace=True)
+        assert datestamp_det_copy == datestamp_det.rotate(-180)
+
 
     def test_to_dict(self, empty_det, text_det, datestamp_det, dict_empty_det, dict_text_det, dict_datestamp_det):
         """test Detection transformation to dict"""
