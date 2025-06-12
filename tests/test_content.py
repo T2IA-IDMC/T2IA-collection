@@ -529,6 +529,7 @@ class TestClassDateStamp:
         assert not test_p.isprocessed()
         assert test_p != test_p2
         assert test_p2 == test_p.process_content(datestamp_json)
+        assert test_p2 == test_p.process_content(**datestamp_json)
         assert not test_p.isprocessed()
         # test des vérifications
         with pytest.raises(ValueError):

@@ -43,6 +43,16 @@ def invalid_bbox(test_bboxes):
 # Detection
 # ---------
 @pytest.fixture
+def datestamp_json():
+    return {'postal_agency': 'ATTIGNY',
+            'date': 'XXXX-07-30TXX:XX',
+            'department': 'ARDENNES',
+            'starred_hour': False,
+            'collection': '3E',
+            'mark_type': 'post office',
+            'quality': 'mediocre'}
+
+@pytest.fixture
 def dict_empty_det(test_bboxes):
   return {'bbox': {coord: value for coord, value in zip('xywh', test_bboxes['xywhn'])},
           'is_manual': False,
@@ -218,6 +228,8 @@ class TestClassDetection:
         with pytest.raises(ValueError):
             Detection(bbox, is_manual=False)
 
+    # Les tests :
+    # -----------
     def test_isempty(self, bbox, empty_det, text_det, datestamp_det):
         """test if Detection has content"""
         assert Detection(bbox).isempty()
@@ -234,6 +246,8 @@ class TestClassDetection:
         assert text_det.isprocessed()
         assert datestamp_det.isprocessed()
 
+    # liées à Content :
+    # -----------------
     def test_get_content_cls(self, bbox, datestamp_det):
         """test Content class retrieval"""
         assert Detection(bbox).get_content_cls() == "Content"
@@ -242,6 +256,32 @@ class TestClassDetection:
         assert Detection(bbox, content=DateStamp()).get_content_cls() == "DateStamp"
         assert Detection(bbox, content=PrintedText()).get_content_cls() == "PrintedText"
 
+    def test_process_content(self, datestamp_det, datestamp_json):
+        """test of content processing"""
+        # il nous faut une détection de datestamp où le contenu n'est pas set manuellement
+        auto_datestamp_det = datestamp_det.copy()
+        auto_datestamp_det.content.is_manual = False  # car process_content n'est prévu que pour l'automatisation
+        # instance de test
+        test_det_stamp = Detection(datestamp_det.bbox,
+                                   is_manual=datestamp_det.is_manual,
+                                   confidence=datestamp_det.confidence,
+                                   content=DateStamp())
+        # pour le test inplace
+        test_det_stamp_copy = test_det_stamp.copy()
+        # tests
+        assert not test_det_stamp.isempty()
+        assert not test_det_stamp.isprocessed()
+        assert test_det_stamp != auto_datestamp_det
+        assert test_det_stamp.process_content(**datestamp_json) == auto_datestamp_det
+        assert test_det_stamp.process_content(datestamp_dict=datestamp_json) == auto_datestamp_det
+        # test inplace
+        assert test_det_stamp_copy == test_det_stamp
+        test_det_stamp_copy.process_content(inplace=True, **datestamp_json)
+        assert test_det_stamp_copy != test_det_stamp
+        assert test_det_stamp_copy == auto_datestamp_det
+
+    # opérations :
+    # ------------
     def test_rotate(self, empty_det, text_det, datestamp_det):
         """test rotation of Detection"""
         assert empty_det.rotate(90).rotate(-90) == empty_det
@@ -259,6 +299,28 @@ class TestClassDetection:
         assert datestamp_det_copy == datestamp_det.rotate(-180)
 
 
+    def test_create_instance(self, bbox, empty_det, text_det, dict_text_det, dict_datestamp_det):
+        """test of create_instance static method"""
+        assert Detection.create_instance(bbox.xyxyn(), is_manual=False, confidence=0.75, coord_format="xyxyn") == empty_det
+        assert Detection.create_instance(
+            list(dict_text_det['bbox'].values()),
+            is_manual=dict_text_det['is_manual'],
+            confidence=dict_text_det['confidence'],
+            content_class=list(dict_text_det['content'].keys())[0],
+            content_dict=list(dict_text_det['content'].values())[0],
+        ) == text_det
+        assert Detection.create_instance(
+            list(dict_datestamp_det['bbox'].values()),
+            is_manual=dict_datestamp_det['is_manual'],
+            confidence=dict_datestamp_det['confidence'],
+            content_class=list(dict_text_det['content'].keys())[0],
+        ) == Detection(bbox=BoundingBox.from_dict(dict_datestamp_det['bbox']),
+                       is_manual=dict_datestamp_det['is_manual'],
+                       confidence=dict_datestamp_det['confidence'],
+                       content=Content.create_instance(content_class=list(dict_text_det['content'].keys())[0]))
+
+    # pour exporter/importer :
+    # ------------------------
     def test_to_dict(self, empty_det, text_det, datestamp_det, dict_empty_det, dict_text_det, dict_datestamp_det):
         """test Detection transformation to dict"""
         assert empty_det.to_dict() == dict_empty_det

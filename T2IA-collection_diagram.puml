@@ -68,14 +68,15 @@ class "Detection" as Detection {
   + is_manual : bool
   + confidence : float | None
   + content : Content | None
-  + copy()
+  + copy() -> Detection
   + isempty() -> bool
   + isprocessed() -> bool
   + get_content_cls() -> str
+  + process_content(inplace: bool, **kwargs) -> Detection | None
   + rotate(theta: Orientation | int | float | str | None, inplace: bool) -> Detection | None
+  + create_instance(coords: Sequence[float], content_class: str | None, is_manual: bool, confidence: float | None, coord_format: CoordFormat | str, img_size: Tuple[float, float] | None, content_dict: dict | None)
   + to_dict() -> dict
   + from_dict(data: dict) -> Detection
-  ...create_instance(...), process_content(...)
 }
 
 class "BoundingBox" as BoundingBox {
@@ -83,7 +84,7 @@ class "BoundingBox" as BoundingBox {
   + w: float
   + x: float
   + y: float
-  + copy()
+  + copy() -> BoundingBox
   + isclose(other: BoundingBox, rtol, atol) -> bool
   + isvalid(atol) -> bool
   + rotate(theta: Orientation | int | float | str | None, inplace: bool) -> BoundingBox | None

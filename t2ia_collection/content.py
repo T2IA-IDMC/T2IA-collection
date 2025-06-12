@@ -77,7 +77,7 @@ class Content(ABC):
     # créer n'importe quelle sous-classe
     # ----------------------------------
     @classmethod
-    def create_instance(cls, class_name: str | None = None, class_dict: dict | None = None) -> "Content":
+    def create_instance(cls, content_class: str | None = None, content_dict: dict | None = None) -> "Content":
         """Permet de créer n'importe quelle sous-classe à partir de son nom (et d'un dict optionnel)"""
         # Récupérer toutes les sous-classes et la classe courante
         def get_all_subclasses(cls):
@@ -90,13 +90,13 @@ class Content(ABC):
         dict_subcls = {subcls.__name__: subcls for subcls in get_all_subclasses(cls)}
 
         # Vérifier si le nom de classe existe
-        if class_name is None:
-            class_name = cls.__name__  # si pas spécifié, on prend le nom de la classe courante
-        elif class_name not in dict_subcls.keys():
-            raise ValueError(f"Classe {class_name} non trouvée")
+        if content_class is None:
+            content_class = cls.__name__  # si pas spécifié, on prend le nom de la classe courante
+        elif content_class not in dict_subcls.keys():
+            raise ValueError(f"Classe {content_class} non trouvée")
 
         # Instancier la classe avec les attributs du dictionnaire
-        res = dict_subcls[class_name]() if class_dict is None else dict_subcls[class_name].from_dict(class_dict)
+        res = dict_subcls[content_class]() if content_dict is None else dict_subcls[content_class].from_dict(content_dict)
         return res
 
     def to_json_object(self, full: bool = True) -> dict:
@@ -115,7 +115,7 @@ class Content(ABC):
 
     # Les traitements :
     # -----------------
-    def process_content(self, confidence: float = 0, inplace: bool = False, *args, **kwargs):
+    def process_content(self, confidence: float = 0, inplace: bool = False, **kwargs):
         """Méthode pour les différents traitements des contenus renvoie soit une copie, soit modifie en place"""
         res = self if inplace else self.copy()
         # modifications
@@ -456,7 +456,7 @@ class DateStamp(Postmark):
 
     # Les traitements :
     # -----------------
-    def process_content(self, datestamp_dict: dict | None = None, inplace: bool = False, *args, **kwargs):
+    def process_content(self, datestamp_dict: dict | None = None, inplace: bool = False, **kwargs):
         """Méthode pour le traitement du contenu des tampons d'oblitération"""
         res = self if inplace else self.copy()
         # modifications
@@ -464,6 +464,9 @@ class DateStamp(Postmark):
         if datestamp_dict is not None:  # si un dictionnaire est passé
             for key in datestamp_dict.keys():
                 res.__dict__[key] = datestamp_dict[key]
+        elif kwargs != {}:  # si on préfère passer les résultats par kwargs
+            for key in kwargs.keys():
+                res.__dict__[key] = kwargs[key]
 
         res.__post_init__()  # pour les vérifs
         return None if inplace else res

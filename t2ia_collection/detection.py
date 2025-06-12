@@ -60,7 +60,7 @@ class BoundingBox:
     def __iter__(self: "BoundingBox") -> Iterator[float]:
         return iter(self.xywhn())
 
-    def copy(self):
+    def copy(self) -> "BoundingBox":
         """retourne une copie de l'instance"""
         return deepcopy(self)
 
@@ -273,7 +273,7 @@ class Detection:
         if (self.is_manual is False) and self.confidence is None:
             raise ValueError("Confidence must be set if the detection is not manually set.")
 
-    def copy(self):
+    def copy(self) -> "Detection":
         """retourne une copie de l'instance"""
         return deepcopy(self)
 
@@ -291,9 +291,16 @@ class Detection:
 
     # liées à Content :
     # -----------------
-    def get_content_cls(self):
+    def get_content_cls(self) -> str:
         """retourne la classe du contenu"""
         return self.content.get_cls_name()
+
+    def process_content(self, inplace: bool = False, **kwargs):
+        """Méthode pour le traitement du contenu"""
+        res = self if inplace else self.copy()
+        # content processing
+        res.content.process_content(inplace=True, **kwargs)
+        return None if inplace else res
 
     # opérations :
     # ------------
@@ -306,6 +313,23 @@ class Detection:
         if isinstance(res.content, Text):  # car seuls les Text ont une orientation
             res.content.rotate(theta, inplace=True)
         return None if inplace else res
+
+    @staticmethod
+    def create_instance(coords: Sequence[float],
+                        content_class: str | None = None,
+                        is_manual: bool = True,
+                        confidence: float | None = None,
+                        coord_format: CoordFormat | str = CoordFormat.XYWHN,
+                        img_size: Tuple[float, float] | None = None,
+                        content_dict: dict | None = None):
+        """Création d'une instance de Detection, notamment à l'aide des outputs de Yolo"""
+        res = Detection(
+            BoundingBox.from_coords(coords=coords, coord_format=coord_format, img_size=img_size),
+            is_manual=is_manual,
+            confidence=confidence,
+            content=Content.create_instance(content_class=content_class, content_dict=content_dict)
+        )
+        return res
 
     # pour exporter/importer :
     # ------------------------
@@ -327,4 +351,3 @@ class Detection:
                          confidence=data['confidence'],
                          content=Content.from_json_object(data['content']))
 
-    # TODO : "create_instance" etc ...
